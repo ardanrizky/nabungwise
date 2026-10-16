@@ -1,8 +1,6 @@
 # TabunganKu (NabungWise)
 
-Aplikasi web pribadi untuk mencatat, menganalisis, dan memprediksi pencapaian target tabungan secara otomatis dan real-time.
-
-🌐 **Demo Live:** [nabungwise.vercel.app](https://nabungwise.vercel.app)
+Web untuk mencatat, menganalisis, dan memprediksi pencapaian target tabungan secara otomatis dan real-time.
 
 ---
 
