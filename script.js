@@ -1,8 +1,79 @@
 'use strict';
 const K = 'tabunganku_v1', $ = q => document.querySelector(q);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let S = (() => { let d; try { d = JSON.parse(localStorage.getItem(K)); } catch (e) {} return Object.assign({ s: null, tx: [], ms: [], log: [], theme: 'dark' }, d && typeof d === 'object' ? d : {}); })();
-const save = () => { try { localStorage.setItem(K, JSON.stringify(S)); } catch (e) { toast('Gagal menyimpan data'); } };
+
+/* ---------- Supabase Cloud Database & Auth ---------- */
+const SUPABASE_URL = 'https://bwztfzjysblxigrdggau.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3enRmemp5c2JseGlncmRnZ2F1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxNTc0NDgsImV4cCI6MjEwNzczMzQ0OH0.dw5PwIHWfOlKhcFNxealvwKoRS5MVIhLbQdBzz-F6D4';
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+let currentUser = null;
+
+let S = (() => {
+  let d;
+  try { d = JSON.parse(localStorage.getItem(K)); } catch (e) {}
+  return Object.assign({ s: null, tx: [], ms: [], log: [], theme: 'dark' }, d && typeof d === 'object' ? d : {});
+})();
+
+async function syncToCloud() {
+  if (!sb || !currentUser) return;
+  try {
+    const payload = {
+      user_id: currentUser.id,
+      settings: S.s || {},
+      transactions: S.tx || [],
+      milestones: S.ms || [],
+      logs: S.log || [],
+      theme: S.theme,
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await sb.from('user_savings').upsert(payload);
+    if (error) console.error('Cloud save error:', error);
+  } catch (err) {
+    console.error('Cloud save failed:', err);
+  }
+}
+
+async function fetchFromCloud() {
+  if (!sb || !currentUser) return;
+  try {
+    const { data, error } = await sb.from('user_savings').select('*').eq('user_id', currentUser.id).maybeSingle();
+    if (error) {
+      console.error('Fetch cloud error:', error);
+      return;
+    }
+    if (data && data.settings && typeof data.settings === 'object' && Object.keys(data.settings).length) {
+      S = {
+        s: data.settings,
+        tx: Array.isArray(data.transactions) ? data.transactions : [],
+        ms: Array.isArray(data.milestones) ? data.milestones : [],
+        log: Array.isArray(data.logs) ? data.logs : [],
+        theme: data.theme || S.theme
+      };
+      localStorage.setItem(K, JSON.stringify(S));
+      applyTheme();
+      render();
+      toast('Data tabungan tersinkronisasi dari Cloud');
+    } else {
+      // Belum ada data di cloud untuk akun ini, unggah data lokal jika ada
+      if (S.s) {
+        await syncToCloud();
+        toast('Data lokal berhasil dicadangkan ke Cloud');
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching cloud data:', err);
+  }
+}
+
+const save = () => {
+  try {
+    localStorage.setItem(K, JSON.stringify(S));
+  } catch (e) {
+    toast('Gagal menyimpan data lokal');
+  }
+  syncToCloud();
+};
+
 const rp = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n || 0);
 const p2 = n => String(n).padStart(2, '0'), iso = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`, today = () => iso(new Date());
 const pd = s => new Date(s + 'T00:00:00'), fd = s => pd(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -334,15 +405,151 @@ function render() {
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.hash === '#' + v));
   $('#ttl').textContent = (NAV.find(n => n[0] === v) || [0, 'Pengaturan Awal Tabungan'])[1];
   if (window.innerWidth <= 900) {
-    $('#side').classList.remove('open');
+    const side = $('#side'); if (side) side.classList.remove('open');
     const ov = $('#side-overlay'); if (ov) ov.classList.remove('show');
   }
+  renderAuthUI();
   f();
 }
 
 const st4 = (l, v, s) => `<div class="card"><span class="mu">${l}</span><b>${v}</b><small>${s || ''}</small></div>`;
 const bar = p => `<div class="bar"><i style="width:${Math.min(100, Math.max(0, p))}%"></i></div>`;
 const V = {};
+
+/* ---------- Auth UI & Modals ---------- */
+function renderAuthUI() {
+  const sideEl = $('#side-user');
+  const hdrEl = $('#hdr-auth');
+  if (currentUser) {
+    if (sideEl) {
+      sideEl.innerHTML = `
+      <div class="user-box">
+        <span class="user-email" title="${esc(currentUser.email)}">${esc(currentUser.email)}</span>
+        <span class="user-status">● Cloud Tersinkron</span>
+        <button class="btn ghost small" id="btn-logout">Keluar</button>
+      </div>`;
+      $('#btn-logout').onclick = handleLogout;
+    }
+    if (hdrEl) {
+      hdrEl.innerHTML = `<button class="ib" id="btn-hdr-acc" title="${esc(currentUser.email)}">Akun</button>`;
+      $('#btn-hdr-acc').onclick = openAccountModal;
+    }
+  } else {
+    if (sideEl) {
+      sideEl.innerHTML = `
+      <div class="user-box">
+        <small class="mu">Mode Offline (Penyimpanan Lokal)</small>
+        <button class="btn small" id="btn-side-auth">Masuk / Daftar Cloud</button>
+      </div>`;
+      $('#btn-side-auth').onclick = () => openAuthModal();
+    }
+    if (hdrEl) {
+      hdrEl.innerHTML = `<button class="btn ghost small" id="btn-hdr-auth">Masuk Cloud</button>`;
+      $('#btn-hdr-auth').onclick = () => openAuthModal();
+    }
+  }
+}
+
+function openAuthModal(defaultTab = 'login') {
+  const d = $('#dlg');
+  let tab = defaultTab;
+
+  const renderModal = (msg = '', isError = false) => {
+    d.innerHTML = `
+    <div>
+      <h3>Akun Cloud TabunganKu</h3>
+      <p class="mu" style="font-size:13px;margin:0">Login atau daftar akun agar data tabunganmu otomatis tersinkron antara HP dan Laptop.</p>
+      <div class="auth-tabs" style="margin-top:12px">
+        <button type="button" class="auth-tab ${tab === 'login' ? 'active' : ''}" id="tab-login">Masuk (Login)</button>
+        <button type="button" class="auth-tab ${tab === 'signup' ? 'active' : ''}" id="tab-signup">Daftar Baru</button>
+      </div>
+      ${msg ? `<div style="padding:10px 12px;border-radius:10px;font-size:13px;background:${isError ? 'rgba(248,113,113,.15)' : 'rgba(16,185,129,.15)'};color:${isError ? 'var(--red)' : 'var(--ac2)'}">${esc(msg)}</div>` : ''}
+      <form id="auth-form" style="display:grid;gap:12px">
+        <label>Email
+          <input name="email" type="email" required placeholder="nama@email.com">
+        </label>
+        <label>Password
+          <input name="password" type="password" required minlength="6" placeholder="Minimal 6 karakter">
+        </label>
+        <div class="row" style="margin-top:6px">
+          <button type="button" class="btn ghost" id="btn-auth-cancel">Batal</button>
+          <button class="btn" id="btn-auth-submit">${tab === 'login' ? 'Masuk ke Akun' : 'Daftar Sekarang'}</button>
+        </div>
+      </form>
+    </div>`;
+
+    $('#tab-login').onclick = () => { tab = 'login'; renderModal(); };
+    $('#tab-signup').onclick = () => { tab = 'signup'; renderModal(); };
+    $('#btn-auth-cancel').onclick = () => d.close();
+
+    $('#auth-form').onsubmit = async e => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const email = f.get('email').trim();
+      const password = f.get('password');
+      const submitBtn = $('#btn-auth-submit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Memproses...';
+
+      if (tab === 'login') {
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) {
+          renderModal(error.message === 'Invalid login credentials' ? 'Email atau password salah' : error.message, true);
+        } else {
+          d.close();
+          toast('Berhasil masuk ke akun cloud');
+          await fetchFromCloud();
+        }
+      } else {
+        const { data, error } = await sb.auth.signUp({ email, password });
+        if (error) {
+          renderModal(error.message, true);
+        } else {
+          if (data.session) {
+            d.close();
+            toast('Akun berhasil dibuat dan langsung terhubung');
+            await syncToCloud();
+          } else {
+            renderModal('Pendaftaran berhasil! Akun Anda telah siap. Silakan klik tab Masuk untuk login.', false);
+          }
+        }
+      }
+    };
+  };
+
+  renderModal();
+  d.showModal();
+}
+
+function openAccountModal() {
+  const d = $('#dlg');
+  d.innerHTML = `
+  <div>
+    <h3>Akun TabunganKu Cloud</h3>
+    <div style="background:var(--bg);border:1px solid var(--bd);padding:14px;border-radius:12px;display:grid;gap:6px">
+      <div class="mu" style="font-size:12px">Email Terdaftar:</div>
+      <b style="font-size:15px">${esc(currentUser.email)}</b>
+      <div style="color:var(--ac2);font-size:12px;margin-top:4px">● Status: Cloud Database Terhubung</div>
+    </div>
+    <p class="mu" style="font-size:13px">Setiap transaksi dan target otomatis tersimpan aman di cloud. Anda bisa login dari perangkat lain (HP/Laptop) menggunakan email ini.</p>
+    <div class="row">
+      <button class="btn ghost" id="btn-acc-close">Tutup</button>
+      <button class="btn red" id="btn-acc-logout">Keluar (Logout)</button>
+    </div>
+  </div>`;
+  $('#btn-acc-close').onclick = () => d.close();
+  $('#btn-acc-logout').onclick = () => { d.close(); handleLogout(); };
+  d.showModal();
+}
+
+async function handleLogout() {
+  if (confirm('Yakin ingin keluar dari akun Cloud? Data lokal Anda tetap tersimpan di peramban ini.')) {
+    if (sb) await sb.auth.signOut();
+    currentUser = null;
+    renderAuthUI();
+    toast('Anda telah keluar dari akun cloud');
+  }
+}
 
 /* ---------- Pengaturan Awal & Pengaturan ---------- */
 function settingsForm(first) {
@@ -357,7 +564,7 @@ function settingsForm(first) {
     <label>Frekuensi Menabung<select name="freq" required><option value="" disabled ${s.freq ? '' : 'selected'}>Pilih frekuensi</option>${opts(FREQ, s.freq || 'mingguan')}</select></label>
     <div class="row" style="grid-column:1/-1"><button class="btn">${first ? 'Mulai Menabung Sekarang' : 'Simpan Perubahan Pengaturan'}</button></div>
   </form>
-  ${first ? '<p class="mu" style="margin-top:16px">Sudah punya file backup sebelumnya? <label class="btn ghost" style="display:inline-block;cursor:pointer;color:var(--tx);margin-left:6px">Pulihkan JSON<input type="file" id="imp0" accept=".json" hidden></label></p>' : ''}</section>
+  ${first ? `<p class="mu" style="margin-top:16px">Sudah punya akun Cloud? <button class="btn ghost" id="btn-login-first" style="margin-left:6px">Masuk Cloud</button> atau <label class="btn ghost" style="display:inline-block;cursor:pointer;color:var(--tx);margin-left:6px">Pulihkan JSON<input type="file" id="imp0" accept=".json" hidden></label></p>` : ''}</section>
   ${first ? '' : `<section class="card"><h3>Tampilan Tema</h3><button class="btn ghost" id="th2">Ganti tema (${S.theme === 'dark' ? 'Mode Gelap' : 'Mode Terang'})</button></section>
   <section class="card"><h3>Log Riwayat Perubahan Saldo Awal</h3>${S.log.length ? `<div class="tw"><table><thead><tr><th>Tanggal</th><th>Sebelumnya</th><th class="r">Saldo Awal Baru</th></tr></thead><tbody>${[...S.log].reverse().map(l => `<tr><td>${fd(l.date)}</td><td>${l.from === null ? 'Saldo awal pertama kali diatur' : rp(l.from)}</td><td class="r in">${rp(l.to)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="mu">Belum ada perubahan saldo awal.</p>'}</section>`}`;
 
@@ -387,6 +594,7 @@ function settingsForm(first) {
     render();
   };
 
+  if ($('#btn-login-first')) $('#btn-login-first').onclick = () => openAuthModal('login');
   if ($('#th2')) $('#th2').onclick = toggleTheme;
   if ($('#imp0')) $('#imp0').onchange = e => importJSON(e.target.files[0]);
 }
@@ -1193,3 +1401,23 @@ window.addEventListener('hashchange', render);
 
 applyTheme();
 render();
+
+// Inisialisasi Sesi Supabase Auth & Cloud Sync
+if (sb) {
+  sb.auth.getSession().then(({ data: { session } }) => {
+    currentUser = session?.user || null;
+    renderAuthUI();
+    if (currentUser) fetchFromCloud();
+  });
+
+  sb.auth.onAuthStateChange(async (event, session) => {
+    const prevUser = currentUser;
+    currentUser = session?.user || null;
+    renderAuthUI();
+    if (currentUser && (!prevUser || prevUser.id !== currentUser.id)) {
+      await fetchFromCloud();
+    }
+  });
+} else {
+  renderAuthUI();
+}

@@ -19,7 +19,7 @@
   <link rel="apple-touch-icon" href="favicon.svg">
   
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <div class="app">
@@ -29,12 +29,14 @@
       <button class="ib" id="sb-close" aria-label="Tutup Menu">✕</button>
     </div>
     <nav id="nav"></nav>
+    <div id="side-user"></div>
   </aside>
   <main>
     <header>
       <button class="ib" id="mb" aria-label="Buka Menu">☰</button>
       <h1 id="ttl">Dashboard</h1>
       <div class="sp"></div>
+      <div id="hdr-auth"></div>
       <button class="ib" id="th" title="Ganti Tema">Tema</button>
       <button class="btn" id="add">+ Transaksi</button>
     </header>
@@ -44,6 +46,7 @@
 <div id="side-overlay"></div>
 <dialog id="dlg"></dialog>
 <div id="toast"></div>
-<script src="script.js?v=4"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js?v=5"></script>
 </body>
 </html>

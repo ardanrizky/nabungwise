@@ -3,7 +3,16 @@
 *{box-sizing:border-box;margin:0}
 body{font:15px/1.5 Inter,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--tx)}
 .app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
-aside{background:var(--card);border-right:1px solid var(--bd);padding:20px 14px;position:sticky;top:0;height:100vh;overflow:auto;transition:transform .3s;z-index:20}
+aside{background:var(--card);border-right:1px solid var(--bd);padding:20px 14px;position:sticky;top:0;height:100vh;overflow-y:auto;transition:transform .3s;z-index:20;display:flex;flex-direction:column}
+#nav{flex:1}
+.user-box{margin-top:auto;padding-top:14px;border-top:1px solid var(--bd);display:grid;gap:8px}
+.user-email{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;color:var(--tx)}
+.user-status{color:var(--ac2);font-size:11px;display:flex;align-items:center;gap:4px}
+.btn.small{padding:6px 12px;font-size:12px;border-radius:8px}
+.auth-tabs{display:flex;border-bottom:1px solid var(--bd);margin-bottom:12px}
+.auth-tab{flex:1;padding:8px;text-align:center;background:none;border:0;color:var(--mu);cursor:pointer;font:inherit;font-size:13px;font-weight:600;border-bottom:2px solid transparent}
+.auth-tab.active{color:var(--ac2);border-color:var(--ac2)}
+#hdr-auth{display:flex;align-items:center;gap:6px}
 .brand{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:20px;padding:4px 6px}
 .brand b{font-size:18px;letter-spacing:-0.2px}
 .brand small{display:block;color:var(--mu);font-size:11px}
