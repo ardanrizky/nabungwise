@@ -40,7 +40,7 @@ function est(bal, target = S.s?.target, r = S.s?.routine, f = S.s?.freq) {
 
 const estTxt = (e, f = S.s?.freq || 'mingguan') => {
   if (!e) return 'Isi nominal rutin';
-  if (e.done) return 'Target tercapai 🎉';
+  if (e.done) return 'Target tercapai';
   return `${fdo(e.d)} <small>(${e.n} ${UNIT[f] || 'periode'} lagi)</small>`;
 };
 
@@ -89,7 +89,7 @@ function scheduleAnalysis() {
   if (c.rem <= 0) {
     status = 'achieved';
     badgeClass = 'achieved';
-    aheadText = 'Target telah tercapai 🎉';
+    aheadText = 'Target telah tercapai';
   } else if (Math.abs(diffBal) < (s.routine * 0.15)) {
     status = 'on_track';
     badgeClass = 'ahead';
@@ -185,13 +185,13 @@ function insights() {
   
   if (sa) {
     if (sa.status === 'ahead') {
-      a.push(`🚀 Luar biasa! Posisi tabunganmu ${sa.aheadText}. Kamu unggul dari jadwal target.`);
+      a.push(`Posisi tabunganmu ${sa.aheadText}. Kamu unggul dari jadwal target.`);
     } else if (sa.status === 'behind') {
-      a.push(`⚠️ ${sa.aheadText}. Disarankan menambah setoran berkala untuk mengejar kembali jadwal target.`);
+      a.push(`${sa.aheadText}. Disarankan menambah setoran berkala untuk mengejar kembali jadwal target.`);
     } else if (sa.status === 'achieved') {
-      a.push(`🎉 Selamat! Kamu telah mencapai atau melampaui target tabungan Rp${rp(S.s.target)}.`);
+      a.push(`Kamu telah mencapai atau melampaui target tabungan Rp${rp(S.s.target)}.`);
     } else {
-      a.push(`🎯 Konsistensi sangat baik! Tabunganmu berjalan sesuai jadwal rencana setoran rutin.`);
+      a.push(`Tabunganmu berjalan sesuai jadwal rencana setoran rutin.`);
     }
     if (sa.actualPerUnit > 0) {
       a.push(`Kecepatan tabungan bersih aktual rata-rata: ${rp(sa.actualPerUnit)} / ${UNIT[S.s.freq]}.`);
@@ -209,7 +209,7 @@ function insights() {
 
   if (c.i > 0) {
     const r = c.o / c.i * 100;
-    a.push(r > 30 ? `⚠️ Rasio penarikan mencapai ${r.toFixed(0)}% dari setoran. Batasi penarikan agar target lekas tercapai.` : `Rasio penarikan sehat, hanya ${r.toFixed(0)}% dari total dana disetor. Pertahankan!`);
+    a.push(r > 30 ? `Rasio penarikan mencapai ${r.toFixed(0)}% dari setoran. Batasi penarikan agar target lekas tercapai.` : `Rasio penarikan sehat, hanya ${r.toFixed(0)}% dari total dana disetor. Pertahankan!`);
   }
 
   const oc = {};
@@ -221,7 +221,7 @@ function insights() {
   return a;
 }
 
-const insCard = () => `<section class="card"><h3>💡 Financial Insights & Evaluasi</h3><ul class="ins">${insights().map(i => `<li>${i}</li>`).join('')}</ul></section>`;
+const insCard = () => `<section class="card"><h3>Financial Insights & Evaluasi</h3><ul class="ins">${insights().map(i => `<li>${i}</li>`).join('')}</ul></section>`;
 
 /* ---------- Grafik SVG Interaktif ---------- */
 function chart(id, L, series, bar) {
@@ -293,12 +293,12 @@ function projChart(id, b, t, r, f) {
     return;
   }
   if (b >= t) {
-    el.innerHTML = '<p class="mu empty" style="color:var(--ac2);font-weight:600">Target sudah tercapai 🎉</p>';
+    el.innerHTML = '<p class="mu empty" style="color:var(--ac2);font-weight:600">Target sudah tercapai</p>';
     return;
   }
   const e = est(b, t, r, f);
   if (!e || e.done) {
-    el.innerHTML = '<p class="mu empty">Target sudah tercapai 🎉</p>';
+    el.innerHTML = '<p class="mu empty">Target sudah tercapai</p>';
     return;
   }
   const st = Math.max(1, Math.ceil(e.n / 24)), ks = [];
@@ -311,7 +311,7 @@ function projChart(id, b, t, r, f) {
   ]);
 }
 
-/* ---------- Navigasi ---------- */
+/* ---------- Navigasi Tanpa Logo / Emoji ---------- */
 const NAV = [
   ['dashboard', 'Dashboard'],
   ['riwayat', 'Riwayat'],
@@ -333,8 +333,10 @@ function render() {
   document.body.classList.toggle('nosetup', !S.s);
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.hash === '#' + v));
   $('#ttl').textContent = (NAV.find(n => n[0] === v) || [0, 'Pengaturan Awal Tabungan'])[1];
-  $('#side').classList.remove('open');
-  const ov = $('#side-overlay'); if (ov) ov.classList.remove('show');
+  if (window.innerWidth <= 900) {
+    $('#side').classList.remove('open');
+    const ov = $('#side-overlay'); if (ov) ov.classList.remove('show');
+  }
   f();
 }
 
@@ -345,7 +347,7 @@ const V = {};
 /* ---------- Pengaturan Awal & Pengaturan ---------- */
 function settingsForm(first) {
   const s = S.s || {};
-  $('#view').innerHTML = `<section class="card ${first ? 'narrow' : ''}"><h2>${first ? '👋 Selamat datang! Atur Target Tabunganmu' : 'Pengaturan Tabungan'}</h2>
+  $('#view').innerHTML = `<section class="card ${first ? 'narrow' : ''}"><h2>${first ? 'Selamat datang! Atur Target Tabunganmu' : 'Pengaturan Tabungan'}</h2>
   <p class="mu">${first ? 'Tentukan target dan jadwal tabunganmu. Semua data perhitungan akan dihitung dari pengaturan ini secara otomatis.' : 'Perubahan saldo awal akan tercatat pada log riwayat di bawah.'}</p>
   <form id="sf" class="grid2">
     <label>Saldo Awal (Rp)<input name="initial" type="number" min="0" step="1" required placeholder="Contoh: 5000000" value="${s.initial ?? ''}"></label>
@@ -353,10 +355,10 @@ function settingsForm(first) {
     <label>Nominal Target Menabung Rutin (Rp)<input name="routine" type="number" min="1" step="1" required placeholder="Contoh: 700000" value="${s.routine ?? ''}"></label>
     <label>Tanggal Mulai Menabung<input name="start" type="date" required value="${s.start ?? today()}"></label>
     <label>Frekuensi Menabung<select name="freq" required><option value="" disabled ${s.freq ? '' : 'selected'}>Pilih frekuensi</option>${opts(FREQ, s.freq || 'mingguan')}</select></label>
-    <div class="row" style="grid-column:1/-1"><button class="btn">${first ? 'Mulai Menabung Sekarang 🚀' : 'Simpan Perubahan Pengaturan'}</button></div>
+    <div class="row" style="grid-column:1/-1"><button class="btn">${first ? 'Mulai Menabung Sekarang' : 'Simpan Perubahan Pengaturan'}</button></div>
   </form>
   ${first ? '<p class="mu" style="margin-top:16px">Sudah punya file backup sebelumnya? <label class="btn ghost" style="display:inline-block;cursor:pointer;color:var(--tx);margin-left:6px">Pulihkan JSON<input type="file" id="imp0" accept=".json" hidden></label></p>' : ''}</section>
-  ${first ? '' : `<section class="card"><h3>Tampilan Tema</h3><button class="btn ghost" id="th2">Ganti tema (${S.theme === 'dark' ? 'Mode Gelap 🌙' : 'Mode Terang ☀️'})</button></section>
+  ${first ? '' : `<section class="card"><h3>Tampilan Tema</h3><button class="btn ghost" id="th2">Ganti tema (${S.theme === 'dark' ? 'Mode Gelap' : 'Mode Terang'})</button></section>
   <section class="card"><h3>Log Riwayat Perubahan Saldo Awal</h3>${S.log.length ? `<div class="tw"><table><thead><tr><th>Tanggal</th><th>Sebelumnya</th><th class="r">Saldo Awal Baru</th></tr></thead><tbody>${[...S.log].reverse().map(l => `<tr><td>${fd(l.date)}</td><td>${l.from === null ? 'Saldo awal pertama kali diatur' : rp(l.from)}</td><td class="r in">${rp(l.to)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="mu">Belum ada perubahan saldo awal.</p>'}</section>`}`;
 
   $('#sf').onsubmit = e => {
@@ -397,7 +399,7 @@ const sorted = l => [...l].sort((a, b) => b.date.localeCompare(a.date) || (b.ts 
 
 function rows(l, act) {
   if (!l.length) return '<p class="mu empty">Tidak ada transaksi tercatat.</p>';
-  return `<div class="tw"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Kategori</th><th>Catatan</th><th class="r">Nominal</th>${act ? '<th>Aksi</th>' : ''}</tr></thead><tbody>${l.map(x => `<tr><td>${fd(x.date)}</td><td><span class="bd ${x.type}">${x.type === 'in' ? 'Setoran' : 'Penarikan'}</span></td><td>${esc(x.cat)}</td><td>${esc(x.note) || '-'}</td><td class="r ${x.type}">${x.type === 'in' ? '+' : '-'}${rp(x.amount)}</td>${act ? `<td class="r nw"><button class="ib" data-a="edit" data-id="${x.id}" title="Edit">✏️</button> <button class="ib" data-a="del" data-id="${x.id}" title="Hapus">🗑️</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+  return `<div class="tw"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Kategori</th><th>Catatan</th><th class="r">Nominal</th>${act ? '<th>Aksi</th>' : ''}</tr></thead><tbody>${l.map(x => `<tr><td>${fd(x.date)}</td><td><span class="bd ${x.type}">${x.type === 'in' ? 'Setoran' : 'Penarikan'}</span></td><td>${esc(x.cat)}</td><td>${esc(x.note) || '-'}</td><td class="r ${x.type}">${x.type === 'in' ? '+' : '-'}${rp(x.amount)}</td>${act ? `<td class="r nw"><button class="ib" data-a="edit" data-id="${x.id}" title="Edit">Edit</button> <button class="ib" data-a="del" data-id="${x.id}" title="Hapus">Hapus</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
 }
 
 V.dashboard = () => {
@@ -406,7 +408,7 @@ V.dashboard = () => {
   let milestoneSnippet = 'Belum ada milestone dibuat';
   if (nm) {
     if (nm.allDone) {
-      milestoneSnippet = `Semua milestone tercapai! 🏆 (${esc(nm.last?.name)})`;
+      milestoneSnippet = `Semua milestone tercapai (${esc(nm.last?.name)})`;
     } else {
       milestoneSnippet = `${esc(nm.milestone.name)}: ${rp(nm.milestone.amount)} <small>(Kurang ${rp(nm.rem)})</small>`;
     }
@@ -420,10 +422,10 @@ V.dashboard = () => {
       <small>Saldo awal ${rp(s.initial)} · Progres ${c.pct.toFixed(1)}%</small>
     </div>
     ${st4('Target Tabungan', rp(s.target), 'Rutin ' + rp(s.routine) + ' / ' + UNIT[s.freq])}
-    ${st4('Status Jadwal', `<span class="pill ${sa.badgeClass}">${sa.status === 'ahead' ? '🚀 Lebih Cepat' : sa.status === 'behind' ? '⚠️ Tertinggal' : sa.status === 'achieved' ? '🎉 Tercapai' : '🎯 On Track'}</span>`, sa.aheadText)}
-    ${st4('Sisa Target', rp(c.rem), c.rem ? `${(100 - c.pct).toFixed(1)}% lagi untuk dicapai` : 'Target Tercapai 🎉')}
+    ${st4('Status Jadwal', `<span class="pill ${sa.badgeClass}">${sa.status === 'ahead' ? 'Lebih Cepat' : sa.status === 'behind' ? 'Tertinggal' : sa.status === 'achieved' ? 'Tercapai' : 'On Track'}</span>`, sa.aheadText)}
+    ${st4('Sisa Target', rp(c.rem), c.rem ? `${(100 - c.pct).toFixed(1)}% lagi untuk dicapai` : 'Target Tercapai')}
     ${st4('Milestone Berikutnya', nm && !nm.allDone ? esc(nm.milestone.name) : 'Semua Tercapai', milestoneSnippet)}
-    ${st4('🔥 Saving Streak', st.cur + ' minggu berturut-turut', 'Rekor terbaik: ' + st.best + ' minggu')}
+    ${st4('Saving Streak', st.cur + ' minggu berturut-turut', 'Rekor terbaik: ' + st.best + ' minggu')}
   </div>
 
   <section class="card">
@@ -434,7 +436,7 @@ V.dashboard = () => {
     ${bar(c.pct)}
     <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:6px;font-size:13px" class="mu">
       <span>Estimasi Rencana Rutin: <b style="color:var(--tx)">${estTxt(e)}</b></span>
-      <span>Estimasi Tempo Aktual: <b style="color:var(--tx)">${sa.estActual ? (sa.estActual.done ? 'Target tercapai 🎉' : fdo(sa.estActual.d) + ` (${sa.estActual.n} ${UNIT[s.freq]} lagi)`) : 'Belum cukup data transaksi'}</b></span>
+      <span>Estimasi Tempo Aktual: <b style="color:var(--tx)">${sa.estActual ? (sa.estActual.done ? 'Target tercapai' : fdo(sa.estActual.d) + ` (${sa.estActual.n} ${UNIT[s.freq]} lagi)`) : 'Belum cukup data transaksi'}</b></span>
     </div>
   </section>
 
@@ -506,7 +508,7 @@ function attempt(n, id) {
   if (n.type !== 'out') return commit(n, id);
 
   const e = est(b.bal);
-  $('#dlg').innerHTML = `<div><h3>⚠️ Konfirmasi Dampak Penarikan</h3><div class="imp">
+  $('#dlg').innerHTML = `<div><h3>Konfirmasi Dampak Penarikan</h3><div class="imp">
   <div>Saldo Tabungan<b>${rp(a.bal)} → ${rp(b.bal)}</b></div>
   <div>Progres Target<b>${a.pct.toFixed(1)}% → ${b.pct.toFixed(1)}%</b></div>
   <div>Sisa Target<b>${rp(a.rem)} → ${rp(b.rem)}</b></div>
@@ -593,10 +595,7 @@ V.analytics = () => {
   const bSeries = balSeries();
   const L = bSeries.L;
   const actualData = bSeries.D;
-  const unitDays = DAYS[s.freq] || 7;
-  const plannedData = L.map((_, idx) => {
-    return s.initial + (idx * s.routine);
-  });
+  const plannedData = L.map((_, idx) => s.initial + (idx * s.routine));
 
   $('#view').innerHTML = `
   <div class="stats">
@@ -690,11 +689,11 @@ V.target = () => {
         const p = Math.min(100, Math.max(0, c.bal / m.amount * 100));
         return `<div class="milestone-item" style="flex-direction:column;align-items:stretch;gap:6px">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-            <b>${p >= 100 ? '✅' : '🎯'} ${esc(m.name)}</b>
-            <span>${rp(m.amount)} <button class="ib" data-a="delms" data-id="${m.id}" title="Hapus">🗑️</button></span>
+            <b>${p >= 100 ? '[Tercapai]' : '[Target]'} ${esc(m.name)}</b>
+            <span>${rp(m.amount)} <button class="ib" data-a="delms" data-id="${m.id}" title="Hapus">Hapus</button></span>
           </div>
           ${bar(p)}
-          <small class="mu">${p >= 100 ? '🎉 Milestone ini telah tercapai!' : `Kurang ${rp(m.amount - c.bal)} (${p.toFixed(1)}% tercapai)`}</small>
+          <small class="mu">${p >= 100 ? 'Milestone ini telah tercapai!' : `Kurang ${rp(m.amount - c.bal)} (${p.toFixed(1)}% tercapai)`}</small>
         </div>`;
       }).join('') : '<p class="mu empty">Belum ada milestone yang ditambahkan.</p>'}
     </div>
@@ -731,9 +730,9 @@ V.prediksi = () => {
   $('#view').innerHTML = `
   <div class="stats">
     ${st4('Sisa Nominal Target', rp(c.rem), `${c.pct.toFixed(1)}% telah terkumpul`)}
-    ${st4('Status Jadwal', `<span class="pill ${sa.badgeClass}">${sa.status === 'ahead' ? '🚀 Lebih Cepat' : sa.status === 'behind' ? '⚠️ Tertinggal' : sa.status === 'achieved' ? '🎉 Tercapai' : '🎯 On Track'}</span>`, sa.aheadText)}
+    ${st4('Status Jadwal', `<span class="pill ${sa.badgeClass}">${sa.status === 'ahead' ? 'Lebih Cepat' : sa.status === 'behind' ? 'Tertinggal' : sa.status === 'achieved' ? 'Tercapai' : 'On Track'}</span>`, sa.aheadText)}
     ${st4('Estimasi (Setoran Rutin)', estTxt(eRoutine, s.freq), 'Rencana: ' + rp(s.routine) + ' / ' + UNIT[s.freq])}
-    ${st4('Estimasi (Tempo Aktual)', eActual ? (eActual.done ? 'Target tercapai 🎉' : `${fdo(eActual.d)} <small>(${eActual.n} ${UNIT[s.freq]} lagi)</small>`) : 'Perlu lebih banyak data', 'Laju riil: ' + rp(sa.actualPerUnit) + ' / ' + UNIT[s.freq])}
+    ${st4('Estimasi (Tempo Aktual)', eActual ? (eActual.done ? 'Target tercapai' : `${fdo(eActual.d)} <small>(${eActual.n} ${UNIT[s.freq]} lagi)</small>`) : 'Perlu lebih banyak data', 'Laju riil: ' + rp(sa.actualPerUnit) + ' / ' + UNIT[s.freq])}
   </div>
 
   <section class="card">
@@ -741,7 +740,7 @@ V.prediksi = () => {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:12px 0">
       <div style="background:var(--bg);border:1px solid var(--bd);padding:14px;border-radius:12px">
         <div style="display:flex;align-items:center;gap:6px;font-weight:600;color:var(--ac2);margin-bottom:6px">
-          <span style="font-size:18px">📌</span> Skenario A: Disiplin Sesuai Rencana
+          Skenario A: Disiplin Sesuai Rencana
         </div>
         <p class="mu" style="font-size:13px">Asumsi kamu menyetor rutin <b>${rp(s.routine)}</b> setiap <b>${UNIT[s.freq]}</b> mulai hari ini tanpa putus.</p>
         <div style="margin-top:10px">
@@ -751,7 +750,7 @@ V.prediksi = () => {
       </div>
       <div style="background:var(--bg);border:1px solid var(--bd);padding:14px;border-radius:12px">
         <div style="display:flex;align-items:center;gap:6px;font-weight:600;color:var(--amb);margin-bottom:6px">
-          <span style="font-size:18px">⚡</span> Skenario B: Realistis Berdasarkan Tempo Riil
+          Skenario B: Realistis Berdasarkan Tempo Riil
         </div>
         <p class="mu" style="font-size:13px">Dihitung dari rata-rata performa menabung bersih aktualmu sejak tanggal <b>${fd(s.start)}</b> (${rp(sa.actualPerUnit)} / ${UNIT[s.freq]}).</p>
         <div style="margin-top:10px">
@@ -767,7 +766,7 @@ V.prediksi = () => {
 
   // Grafik proyeksi komparatif
   if (c.rem <= 0) {
-    $('#c_proj').innerHTML = '<p class="mu empty" style="color:var(--ac2);font-weight:600">Target Rp' + rp(s.target) + ' telah tercapai sepenuhnya! 🎉</p>';
+    $('#c_proj').innerHTML = '<p class="mu empty" style="color:var(--ac2);font-weight:600">Target Rp' + rp(s.target) + ' telah tercapai sepenuhnya!</p>';
   } else {
     const maxWeeks = Math.max(eRoutine ? eRoutine.n : 10, eActual && !eActual.done ? eActual.n : 10);
     const step = Math.max(1, Math.ceil(maxWeeks / 20));
@@ -841,7 +840,7 @@ V.simulator = () => {
     if (effBal >= t) {
       $('#so').innerHTML = `
       <div style="background:rgba(16,185,129,.15);border:1px solid var(--ac);padding:14px;border-radius:12px">
-        <h4 style="color:var(--ac2);margin:0 0 6px">Target Sudah Tercapai! 🎉</h4>
+        <h4 style="color:var(--ac2);margin:0 0 6px">Target Sudah Tercapai!</h4>
         <p style="margin:0">Saldo simulasi efektif (${rp(effBal)}) sudah sama atau melampaui target yang ditetapkan (${rp(t)}).</p>
       </div>`;
       $('#c1').innerHTML = '<p class="mu empty">Target sudah tercapai pada saldo awal simulasi.</p>';
@@ -856,9 +855,9 @@ V.simulator = () => {
       if (baseEst && effEst && !baseEst.done && !effEst.done) {
         const delta = baseEst.n - effEst.n;
         if (delta > 0) {
-          impactText = `<p style="color:var(--ac2);font-weight:600;margin-top:6px">⚡ Tambahan setoran Rp${rp(bonus)} mempercepat target tercapai sebanyak ~${delta} ${UNIT[fr]} lebih awal!</p>`;
+          impactText = `<p style="color:var(--ac2);font-weight:600;margin-top:6px">Tambahan setoran Rp${rp(bonus)} mempercepat target tercapai sebanyak ~${delta} ${UNIT[fr]} lebih awal!</p>`;
         } else if (delta < 0) {
-          impactText = `<p style="color:var(--red);font-weight:600;margin-top:6px">⚠️ Penarikan Rp${rp(withdraw)} menunda pencapaian target sebanyak ~${Math.abs(delta)} ${UNIT[fr]}.</p>`;
+          impactText = `<p style="color:var(--red);font-weight:600;margin-top:6px">Penarikan Rp${rp(withdraw)} menunda pencapaian target sebanyak ~${Math.abs(delta)} ${UNIT[fr]}.</p>`;
         }
       }
     }
@@ -960,7 +959,7 @@ V.kalender = () => {
     wl += `<div style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px">
         <span>${fd(as)} – ${fd(bs)}</span>
-        <span><b>${rp(t)}</b> / ${rp(wt)} ${wt > 0 && t >= wt ? '✅ Tercapai' : ''}</span>
+        <span><b>${rp(t)}</b> / ${rp(wt)} ${wt > 0 && t >= wt ? '(Tercapai)' : ''}</span>
       </div>
       ${bar(p)}
     </div>`;
@@ -981,7 +980,7 @@ V.kalender = () => {
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12px" class="mu">
       <span><span class="dt in"></span> Setoran</span>
       <span><span class="dt out"></span> Penarikan</span>
-      <span>⬚ Jadwal setoran rutin</span>
+      <span>Jadwal setoran rutin</span>
       <span><b>Bold</b> Hari ini</span>
     </div>
 
@@ -989,7 +988,7 @@ V.kalender = () => {
     <div class="cal-detail">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
-          <b style="font-size:15px">📅 ${fdo(pd(selectedCalDate))}</b>
+          <b style="font-size:15px">Tanggal: ${fdo(pd(selectedCalDate))}</b>
           ${curSched ? '<span class="pill ahead" style="margin-left:8px">Jadwal Menabung Rutin</span>' : ''}
         </div>
         <button class="btn" id="btn-add-day">+ Catat Transaksi di Tanggal Ini</button>
@@ -1050,7 +1049,7 @@ V.laporan = () => {
   <section class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <h2>Laporan Keuangan & Tabungan</h2>
-      <button class="btn noprint" onclick="window.print()">🖨️ Cetak / Ekspor PDF</button>
+      <button class="btn noprint" onclick="window.print()">Cetak / Ekspor PDF</button>
     </div>
     <p class="mu">Dihasilkan pada: ${fdo(new Date())} · Periode aktif sejak: ${fd(s.start)}</p>
     <div class="stats" style="margin-top:14px">
@@ -1131,12 +1130,12 @@ V.backup = () => {
     <h2>Backup & Pulihkan Data</h2>
     <p class="mu">Amankan seluruh data tabungan, transaksi, milestone, dan pengaturan ke file JSON lokal di perangkatmu.</p>
     <div class="row wrap" style="margin-top:14px">
-      <button class="btn" id="bj">⬇️ Unduh Backup JSON</button>
+      <button class="btn" id="bj">Unduh Backup JSON</button>
       <label class="btn ghost" style="cursor:pointer;color:var(--tx);display:inline-flex;align-items:center">
-        ⬆️ Impor & Pulihkan JSON
+        Impor & Pulihkan JSON
         <input type="file" id="ij" accept=".json" hidden>
       </label>
-      <button class="btn ghost" id="bc">📄 Ekspor Riwayat Transaksi CSV</button>
+      <button class="btn ghost" id="bc">Ekspor Riwayat Transaksi CSV</button>
     </div>
   </section>
 
@@ -1177,11 +1176,11 @@ function toggleTheme() {
 }
 
 const closeSide = () => {
-  $('#side').classList.remove('open');
+  const side = $('#side'); if (side) side.classList.remove('open');
   const ov = $('#side-overlay'); if (ov) ov.classList.remove('show');
 };
 const openSide = () => {
-  $('#side').classList.add('open');
+  const side = $('#side'); if (side) side.classList.add('open');
   const ov = $('#side-overlay'); if (ov) ov.classList.add('show');
 };
 

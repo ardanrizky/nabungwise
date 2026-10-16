@@ -20,15 +20,10 @@
         {
           "key": "Referrer-Policy",
           "value": "strict-origin-when-cross-origin"
-        }
-      ]
-    },
-    {
-      "source": "/(style.css|script.js|favicon.svg)",
-      "headers": [
+        },
         {
           "key": "Cache-Control",
-          "value": "public, max-age=3600, must-revalidate"
+          "value": "no-cache, no-store, must-revalidate"
         }
       ]
     }
