@@ -313,19 +313,19 @@ function projChart(id, b, t, r, f) {
 
 /* ---------- Navigasi ---------- */
 const NAV = [
-  ['dashboard', 'Dashboard', '📊'],
-  ['riwayat', 'Riwayat', '🧾'],
-  ['analytics', 'Analytics', '📈'],
-  ['target', 'Target Tabungan', '🎯'],
-  ['prediksi', 'Prediksi', '🔮'],
-  ['simulator', 'Simulator', '🧮'],
-  ['kalender', 'Kalender', '📅'],
-  ['laporan', 'Laporan', '📄'],
-  ['backup', 'Backup & Restore', '💾'],
-  ['pengaturan', 'Pengaturan', '⚙️']
+  ['dashboard', 'Dashboard'],
+  ['riwayat', 'Riwayat'],
+  ['analytics', 'Analytics'],
+  ['target', 'Target Tabungan'],
+  ['prediksi', 'Prediksi'],
+  ['simulator', 'Simulator'],
+  ['kalender', 'Kalender'],
+  ['laporan', 'Laporan'],
+  ['backup', 'Backup & Restore'],
+  ['pengaturan', 'Pengaturan']
 ];
 
-$('#nav').innerHTML = NAV.map(n => `<a href="#${n[0]}"><span>${n[2]}</span>${n[1]}</a>`).join('');
+$('#nav').innerHTML = NAV.map(n => `<a href="#${n[0]}">${n[1]}</a>`).join('');
 
 function render() {
   const v = S.s ? (location.hash.slice(1) || 'dashboard') : 'setup';

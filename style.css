@@ -4,10 +4,10 @@
 body{font:15px/1.5 Inter,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--tx)}
 .app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
 aside{background:var(--card);border-right:1px solid var(--bd);padding:20px 14px;position:sticky;top:0;height:100vh;overflow:auto;transition:transform .3s}
-.brand{display:flex;gap:10px;align-items:center;margin-bottom:22px;padding:0 6px}
+.brand{display:flex;flex-direction:column;gap:2px;margin-bottom:22px;padding:4px 10px}
+.brand b{font-size:18px;letter-spacing:-0.2px}
 .brand small{display:block;color:var(--mu);font-size:11px}
-.logo{background:linear-gradient(135deg,#059669,#34d399);width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px}
-nav a{display:flex;gap:10px;padding:10px 12px;border-radius:12px;color:var(--mu);text-decoration:none;margin-bottom:2px;transition:.2s}
+nav a{display:block;padding:10px 14px;border-radius:12px;color:var(--mu);text-decoration:none;margin-bottom:3px;font-size:14px;transition:.2s}
 nav a:hover{background:rgba(16,185,129,.08);color:var(--tx)}
 nav a.on{background:rgba(16,185,129,.16);color:var(--ac2);font-weight:600}
 main{padding:20px 28px 50px;min-width:0}
