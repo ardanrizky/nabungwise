@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TabunganKu – Savings Analytics & Dynamic Forecasting</title>
+  <meta name="description" content="Aplikasi web analitik tabungan pribadi modern dengan dynamic forecasting, pelacak milestone, kalender interaktif, dan simulator target tabungan.">
+  <meta name="keywords" content="tabungan, savings tracker, financial analytics, kalkulator tabungan, personal finance, budget tracker">
+  <meta name="author" content="TabunganKu">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="TabunganKu – Savings Analytics & Dynamic Forecasting">
+  <meta property="og:description" content="Catat, pantau, dan analisis perkembangan tabungan secara konsisten dengan proyeksi dinamis real-time.">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="favicon.svg">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <aside id="side">
+    <div class="brand">
+      <span class="logo">💰</span>
+      <div><b>TabunganKu</b><small>Savings Analytics</small></div>
+    </div>
+    <nav id="nav"></nav>
+  </aside>
+  <main>
+    <header>
+      <button class="ib" id="mb" aria-label="Buka Menu">☰</button>
+      <h1 id="ttl">Dashboard</h1>
+      <div class="sp"></div>
+      <button class="ib" id="th" title="Ganti Tema Gelap / Terang">🌓</button>
+      <button class="btn" id="add">+ Transaksi</button>
+    </header>
+    <div id="view"></div>
+  </main>
+</div>
+<dialog id="dlg"></dialog>
+<div id="toast"></div>
+<script src="script.js"></script>
+</body>
+</html>

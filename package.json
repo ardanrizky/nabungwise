@@ -1,0 +1,21 @@
+{
+  "name": "tabunganku",
+  "version": "1.0.0",
+  "description": "TabunganKu – Personal Savings Analytics & Dynamic Forecasting Dashboard",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx -y serve .",
+    "dev": "npx -y serve ."
+  },
+  "keywords": [
+    "savings",
+    "tabungan",
+    "analytics",
+    "finance",
+    "dashboard",
+    "forecasting",
+    "simulator"
+  ],
+  "author": "Ardan",
+  "license": "MIT"
+}
