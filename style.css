@@ -4,9 +4,12 @@
 body{font:15px/1.5 Inter,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--tx)}
 .app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
 aside{background:var(--card);border-right:1px solid var(--bd);padding:20px 14px;position:sticky;top:0;height:100vh;overflow:auto;transition:transform .3s}
-.brand{display:flex;flex-direction:column;gap:2px;margin-bottom:22px;padding:4px 10px}
+.brand{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:20px;padding:4px 6px}
 .brand b{font-size:18px;letter-spacing:-0.2px}
 .brand small{display:block;color:var(--mu);font-size:11px}
+#sb-close{display:none}
+#side-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);z-index:90;opacity:0;pointer-events:none;transition:opacity .25s ease}
+#side-overlay.show{opacity:1;pointer-events:auto}
 nav a{display:block;padding:10px 14px;border-radius:12px;color:var(--mu);text-decoration:none;margin-bottom:3px;font-size:14px;transition:.2s}
 nav a:hover{background:rgba(16,185,129,.08);color:var(--tx)}
 nav a.on{background:rgba(16,185,129,.16);color:var(--ac2);font-weight:600}
@@ -73,6 +76,34 @@ dialog form,dialog>div{display:grid;gap:12px}
 body.nosetup #nav,body.nosetup #add,body.nosetup #mb{display:none}
 body.nosetup .app{grid-template-columns:1fr}body.nosetup aside{display:none}
 @media(max-width:900px){
-.app{display:block}aside{position:fixed;z-index:20;left:0;width:250px;transform:translateX(-100%)}aside.open{transform:none}
-#mb{display:inline-block}main{padding:16px 14px 40px}.g2{grid-template-columns:1fr}.fil{grid-template-columns:1fr 1fr}.fil label:first-child{grid-column:1/-1}}
+.app{display:block}
+aside{position:fixed;z-index:100;left:0;top:0;width:270px;max-width:84vw;height:100vh;box-shadow:4px 0 24px rgba(0,0,0,.35);transform:translateX(-100%);transition:transform .25s ease}
+aside.open{transform:none}
+#sb-close{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;font-size:16px;border-radius:8px;cursor:pointer}
+#mb{display:inline-block}
+main{padding:16px 14px 40px}
+.g2{grid-template-columns:1fr}
+.fil{grid-template-columns:1fr 1fr}
+.fil label:first-child{grid-column:1/-1}
+}
+@media(max-width:640px){
+main{padding:12px 10px 40px}
+header{margin-bottom:14px;gap:8px}
+h1{font-size:18px}
+.btn{padding:8px 12px;font-size:13px}
+.ib{padding:6px 8px}
+.card{padding:13px;margin-bottom:12px;border-radius:12px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stats .card{padding:11px 9px;margin:0;gap:2px}
+.stats .hero{grid-column:1/-1;padding:15px 12px}
+.stats .hero b{font-size:22px}
+.stats b{font-size:15px;line-height:1.2}
+.stats span.mu{font-size:11px}
+.stats small{font-size:10px;line-height:1.2}
+.stats .card:last-child{grid-column:1/-1}
+.ch svg{min-height:180px}
+.cal div{min-height:42px;font-size:12px;padding:5px 1px}
+.cal-detail{padding:12px}
+.fil{grid-template-columns:1fr}
+}
 @media print{aside,header,.noprint{display:none!important}.app{display:block}body{background:#fff;color:#000}.card{border:1px solid #ccc}}

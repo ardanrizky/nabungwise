@@ -334,6 +334,7 @@ function render() {
   document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.hash === '#' + v));
   $('#ttl').textContent = (NAV.find(n => n[0] === v) || [0, 'Pengaturan Awal Tabungan'])[1];
   $('#side').classList.remove('open');
+  const ov = $('#side-overlay'); if (ov) ov.classList.remove('show');
   f();
 }
 
@@ -1175,9 +1176,20 @@ function toggleTheme() {
   render();
 }
 
+const closeSide = () => {
+  $('#side').classList.remove('open');
+  const ov = $('#side-overlay'); if (ov) ov.classList.remove('show');
+};
+const openSide = () => {
+  $('#side').classList.add('open');
+  const ov = $('#side-overlay'); if (ov) ov.classList.add('show');
+};
+
 $('#th').onclick = toggleTheme;
 $('#add').onclick = () => openTx();
-$('#mb').onclick = () => $('#side').classList.toggle('open');
+$('#mb').onclick = openSide;
+if ($('#sb-close')) $('#sb-close').onclick = closeSide;
+if ($('#side-overlay')) $('#side-overlay').onclick = closeSide;
 window.addEventListener('hashchange', render);
 
 applyTheme();
