@@ -290,15 +290,17 @@ function toggleBalancePrivacy() {
 }
 
 /* ---------- Perhitungan & Forecasting Dinamis ---------- */
-const sum = (t, l = S.tx) => l.filter(x => x.type === t).reduce((a, x) => a + x.amount, 0);
+const sum = (t, l = S.tx) => (l || []).filter(x => x && x.type === t).reduce((a, x) => a + (Number(x.amount) || 0), 0);
 
 function calc(l = S.tx) {
   const s = S.s || { initial: 0, target: 0, routine: 0, freq: 'mingguan', start: today() };
-  const i = sum('in', l), o = sum('out', l), bal = s.initial + i - o;
+  const initial = Number(s.initial) || 0;
+  const i = sum('in', l), o = sum('out', l), bal = initial + i - o;
+  const target = Number(s.target) || 0;
   return {
     i, o, bal,
-    pct: s.target > 0 ? Math.max(0, Math.min(100, bal / s.target * 100)) : 0,
-    rem: Math.max(0, s.target - bal)
+    pct: target > 0 ? Math.max(0, Math.min(100, bal / target * 100)) : 0,
+    rem: Math.max(0, target - bal)
   };
 }
 
@@ -1789,20 +1791,25 @@ function openPayBillModal(id) {
   const now = new Date();
   const curPeriod = `${now.getFullYear()}-${p2(now.getMonth() + 1)}`;
   const periodName = `${MN[now.getMonth()]} ${now.getFullYear()}`;
+  const billAmt = Math.max(1, Math.round(Number(b.amount) || 0));
+  const curBal = calc().bal;
+  const nextBal = curBal - billAmt;
 
   const d = $('#dlg');
   d.innerHTML = `
   <div>
     <h3>Konfirmasi Pembayaran Tagihan</h3>
     <p class="mu" style="font-size:13px;margin:0 0 14px;line-height:1.5">
-      Apakah tagihan <b>${esc(b.name)}</b> sebesar <b>${rp(b.amount, true)}</b> untuk periode <b>${periodName}</b> sudah selesai kamu bayar?
+      Apakah tagihan <b>${esc(b.name)}</b> sebesar <b>${rp(billAmt, true)}</b> untuk periode <b>${periodName}</b> sudah selesai dibayar?
     </p>
 
-    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:12px 14px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;margin-bottom:14px">
-      <input type="checkbox" id="pay-auto-deduct" checked style="margin-top:3px">
+    <label style="display:flex;align-items:flex-start;gap:12px;cursor:pointer;padding:12px 14px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;margin-bottom:14px">
+      <input type="checkbox" id="pay-auto-deduct" checked style="margin-top:3px;transform:scale(1.15)">
       <span style="font-size:13px;line-height:1.4">
-        <b style="color:var(--tx-bright);display:block;margin-bottom:2px">Catat otomatis sebagai penarikan dari tabungan</b>
-        <span class="mu">Otomatis menambahkan catatan transaksi uang keluar sebesar ${rp(b.amount, true)} dengan kategori Kebutuhan pada tanggal hari ini.</span>
+        <b style="color:var(--tx-bright);display:block;margin-bottom:2px">Masuk catatan riwayat otomatis & kurangi saldo tabungan</b>
+        <span id="pay-deduct-hint" class="mu" style="display:block">
+          Saldo tabungan berkurang <b>${rp(billAmt, true)}</b> (dari ${rp(curBal, true)} menjadi <b>${rp(nextBal, true)}</b>) dan dicatat sebagai pengeluaran di menu Riwayat Transaksi.
+        </span>
       </span>
     </label>
 
@@ -1815,28 +1822,66 @@ function openPayBillModal(id) {
   if (d.open) d.close();
   d.showModal();
 
+  const chk = $('#pay-auto-deduct');
+  const hint = $('#pay-deduct-hint');
+  if (chk && hint) {
+    chk.onchange = () => {
+      if (chk.checked) {
+        hint.innerHTML = `Saldo tabungan berkurang <b>${rp(billAmt, true)}</b> (dari ${rp(curBal, true)} menjadi <b>${rp(nextBal, true)}</b>) dan dicatat sebagai pengeluaran di menu Riwayat Transaksi.`;
+      } else {
+        hint.innerHTML = `<b>Mode pengingat saja:</b> Tagihan ditandai lunas tanpa mengurangi saldo tabungan dan tanpa dicatat di riwayat transaksi (saldo tetap <b>${rp(curBal, true)}</b>).`;
+      }
+    };
+  }
+
   $('#btn-cancel-pay').onclick = () => d.close();
   $('#btn-confirm-pay').onclick = () => {
-    const autoDeduct = $('#pay-auto-deduct')?.checked;
-    b.paidPeriods = b.paidPeriods || [];
+    const autoDeduct = Boolean($('#pay-auto-deduct')?.checked);
+    b.paidPeriods = Array.isArray(b.paidPeriods) ? b.paidPeriods : [];
     if (!b.paidPeriods.includes(curPeriod)) {
       b.paidPeriods.push(curPeriod);
     }
+    b.paidTxMap = b.paidTxMap || {};
 
     if (autoDeduct) {
-      commit({
-        type: 'out',
-        amount: b.amount,
-        date: today(),
-        cat: 'Kebutuhan',
-        note: 'Pembayaran tagihan ' + b.name
-      });
-    }
+      // Hapus transaksi pembayaran periode ini yang mungkin sudah ada sebelumnya untuk mencegah duplikasi
+      if (b.paidTxMap[curPeriod]) {
+        const prevId = b.paidTxMap[curPeriod];
+        S.tx = (S.tx || []).filter(t => String(t.id) !== String(prevId));
+      }
 
-    save();
-    d.close();
-    toast('Tagihan ' + b.name + ' berhasil ditandai lunas');
-    render();
+      const txId = 'tx_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const newTx = {
+        id: txId,
+        type: 'out',
+        amount: billAmt,
+        date: today(),
+        cat: b.cat || 'Kebutuhan',
+        note: 'Pembayaran tagihan: ' + b.name,
+        billId: b.id,
+        period: curPeriod,
+        ts: Date.now()
+      };
+      if (!Array.isArray(S.tx)) S.tx = [];
+      S.tx.push(newTx);
+      b.paidTxMap[curPeriod] = txId;
+
+      save();
+      d.close();
+      toast(`Tagihan ${b.name} lunas. Saldo berkurang ${rp(billAmt, true)} & masuk riwayat transaksi.`);
+      render();
+    } else {
+      // Mode hanya pengingat: jika ada transaksi otomatis yang pernah tercatat sebelumnya untuk periode ini, hapus
+      if (b.paidTxMap[curPeriod]) {
+        const oldTxId = b.paidTxMap[curPeriod];
+        S.tx = (S.tx || []).filter(t => String(t.id) !== String(oldTxId));
+        delete b.paidTxMap[curPeriod];
+      }
+      save();
+      d.close();
+      toast(`Tagihan ${b.name} ditandai lunas (hanya pengingat, saldo tetap utuh).`);
+      render();
+    }
   };
 }
 
@@ -1846,8 +1891,28 @@ function unpayBill(id) {
   const now = new Date();
   const curPeriod = `${now.getFullYear()}-${p2(now.getMonth() + 1)}`;
   b.paidPeriods = (b.paidPeriods || []).filter(p => p !== curPeriod);
+
+  let restoredAmount = 0;
+  if (b.paidTxMap && b.paidTxMap[curPeriod]) {
+    const linkedTxId = b.paidTxMap[curPeriod];
+    const found = (S.tx || []).find(t => String(t.id) === String(linkedTxId));
+    if (found) restoredAmount = Number(found.amount) || 0;
+    S.tx = (S.tx || []).filter(t => String(t.id) !== String(linkedTxId));
+    delete b.paidTxMap[curPeriod];
+  } else {
+    const fIdx = (S.tx || []).findIndex(t => t.billId === b.id && t.period === curPeriod);
+    if (fIdx >= 0) {
+      restoredAmount = Number(S.tx[fIdx].amount) || 0;
+      S.tx.splice(fIdx, 1);
+    }
+  }
+
   save();
-  toast('Status lunas ' + b.name + ' dibatalkan');
+  if (restoredAmount > 0) {
+    toast(`Status lunas ${b.name} dibatalkan. Saldo tabungan dikembalikan +${rp(restoredAmount, true)}.`);
+  } else {
+    toast(`Status lunas ${b.name} dibatalkan.`);
+  }
   render();
 }
 
@@ -2020,12 +2085,13 @@ V.tagihan = () => {
     return a.st.daysLeft - b.st.daysLeft;
   });
 
+  const curBal = calc().bal;
   $('#view').innerHTML = `
   <div class="stats">
+    ${st4('Saldo Tabungan Terkini', rp(curBal), isBalanceHidden ? 'Privasi aktif' : 'Total saldo saat ini', 'emerald', ICONS.wallet)}
     ${st4('Total Tagihan ' + curMonthName, rp(totalAmount, true), totalCount + ' tagihan terdaftar', 'sky', ICONS.receipt)}
     ${st4('Sudah Dibayar (Lunas)', rp(paidAmount, true), paidCount + ' tagihan lunas bulan ini', 'emerald', ICONS.check)}
     ${st4('Sisa Belum Dibayar', rp(unpaidAmount, true), unpaidCount + ' tagihan menunggu', unpaidCount ? 'rose' : 'emerald', ICONS.alert)}
-    ${st4('Jatuh Tempo Terdekat', nearestSnippet, nearestBill ? rp(nearestBill.amount, true) : 'Bulan ini aman', 'amber', ICONS.clock)}
   </div>
 
   <section class="card">
@@ -2152,7 +2218,7 @@ window.openNotificationSettingsModal = openNotificationSettingsModal;
 const F = { q: '', t: '', c: '', m: '' };
 V.riwayat = () => {
   const ms = [...new Set(S.tx.map(x => x.date.slice(0, 7)))].sort().reverse();
-  const cats = [...new Set([...CAT.in, ...CAT.out])];
+  const cats = [...new Set([...CAT.in, ...CAT.out, ...BILL_CATS, ...(S.tx || []).map(x => x.cat).filter(Boolean)])];
   $('#view').innerHTML = `<section class="card"><div class="fil">
     <label>Cari Transaksi<input id="fq" placeholder="Catatan atau kategori..." value="${esc(F.q)}"></label>
     <label>Jenis<select id="ft"><option value="">Semua Jenis</option><option value="in">Setoran</option><option value="out">Penarikan</option></select></label>
