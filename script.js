@@ -11,7 +11,16 @@ let currentUser = null;
 let S = (() => {
   let d;
   try { d = JSON.parse(localStorage.getItem(K)); } catch (e) {}
-  return Object.assign({ s: null, tx: [], ms: [], log: [], theme: 'dark', hideBalance: false }, d && typeof d === 'object' ? d : {});
+  const initial = {
+    s: null, tx: [], ms: [], log: [], theme: 'dark', hideBalance: false,
+    bills: [],
+    billSettings: { remindTime: '08:00', remindFreq: 1 }
+  };
+  const loaded = d && typeof d === 'object' ? d : {};
+  return Object.assign(initial, loaded, {
+    bills: Array.isArray(loaded.bills) ? loaded.bills : (loaded.s?._bills || []),
+    billSettings: Object.assign({ remindTime: '08:00', remindFreq: 1 }, loaded.billSettings || loaded.s?._billSettings || {})
+  });
 })();
 
 let isUnlocked = false;
@@ -19,6 +28,7 @@ let isBalanceHidden = Boolean(S.hideBalance);
 let balRange = 'all';
 let analyticsPeriod = 'all';
 let c2Filter = 'all';
+let billFilter = 'all';
 const isPinActive = () => Boolean(S?.s?._security?.pinEnabled && S?.s?._security?.pinHash);
 
 async function hashPin(pin) {
@@ -73,7 +83,9 @@ async function fetchFromCloud() {
         tx: Array.isArray(data.transactions) ? data.transactions : [],
         ms: Array.isArray(data.milestones) ? data.milestones : [],
         log: Array.isArray(data.logs) ? data.logs : [],
-        theme: data.theme || S.theme
+        theme: data.theme || S.theme,
+        bills: Array.isArray(data.settings?._bills) ? data.settings._bills : (S.bills || []),
+        billSettings: data.settings?._billSettings || S.billSettings || { remindTime: '08:00', remindFreq: 1 }
       };
       localStorage.setItem(K, JSON.stringify(S));
       applyTheme();
@@ -93,6 +105,10 @@ async function fetchFromCloud() {
 
 const save = () => {
   try {
+    if (S.s) {
+      S.s._bills = S.bills || [];
+      S.s._billSettings = S.billSettings || {};
+    }
     localStorage.setItem(K, JSON.stringify(S));
   } catch (e) {
     toast('Gagal menyimpan data lokal');
@@ -133,8 +149,126 @@ const ICONS = {
   sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>',
   user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>',
   eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
-  eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
+  eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>',
+  bellRing: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path><path d="M2 8c0-2.2 1.8-4 4-4"></path><path d="M22 8c0-2.2-1.8-4-4-4"></path></svg>',
+  receipt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"></path><path d="M14 8H8"></path><path d="M16 12H8"></path><path d="M13 16H8"></path></svg>',
+  alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
 };
+
+const BILL_CATS = ['Listrik & Air', 'Internet & Pulsa', 'Cicilan & Pinjaman', 'Asuransi & BPJS', 'Pendidikan', 'Langganan & Hiburan', 'Sewa & Kontrakan', 'Lainnya'];
+
+function getBillStatus(b, refDate = new Date()) {
+  const y = refDate.getFullYear(), m = refDate.getMonth(), curDay = refDate.getDate();
+  const curPeriod = `${y}-${p2(m + 1)}`;
+  const dim = new Date(y, m + 1, 0).getDate();
+  const targetDay = Math.min(b.dueDay || 1, dim);
+  const isPaid = Array.isArray(b.paidPeriods) && b.paidPeriods.includes(curPeriod);
+  const daysLeft = targetDay - curDay;
+  const targetDateStr = `${y}-${p2(m + 1)}-${p2(targetDay)}`;
+
+  if (isPaid) {
+    return { status: 'paid', badge: 'Lunas Bulan Ini', cls: 'paid', isPaid: true, daysLeft, targetDay, targetDateStr };
+  }
+  if (daysLeft === 0) {
+    return { status: 'today', badge: 'Jatuh Tempo Hari Ini', cls: 'today', isPaid: false, daysLeft, targetDay, targetDateStr };
+  }
+  if (daysLeft < 0) {
+    return { status: 'overdue', badge: `Terlewat ${Math.abs(daysLeft)} Hari`, cls: 'overdue', isPaid: false, daysLeft, targetDay, targetDateStr };
+  }
+  if (daysLeft <= 7) {
+    return { status: 'soon', badge: `H-${daysLeft} (${daysLeft} Hari Lagi)`, cls: 'soon', isPaid: false, daysLeft, targetDay, targetDateStr };
+  }
+  return { status: 'upcoming', badge: `Tgl ${targetDay} (${daysLeft} Hari Lagi)`, cls: 'upcoming', isPaid: false, daysLeft, targetDay, targetDateStr };
+}
+
+function triggerNotification(title, body, tag = 'tabunganku-bill', data = { url: '/#tagihan' }) {
+  if (typeof Notification === 'undefined') return;
+  if (Notification.permission === 'granted') {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SHOW_NOTIFICATION',
+        title,
+        body,
+        tag,
+        data
+      });
+    } else if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, {
+          body,
+          icon: 'favicon.svg',
+          badge: 'favicon.svg',
+          tag,
+          data,
+          vibrate: [200, 100, 200]
+        });
+      }).catch(() => {
+        try { new Notification(title, { body, icon: 'favicon.svg', tag, data }); } catch (e) {}
+      });
+    } else {
+      try {
+        new Notification(title, { body, icon: 'favicon.svg', tag, data });
+      } catch (e) {
+        console.warn('Direct notification error:', e);
+      }
+    }
+  }
+}
+
+function checkAndTriggerBillNotifications(force = false) {
+  if (!S.bills || !S.bills.length) return;
+  const now = new Date();
+  const curHour = now.getHours();
+  const curMinutes = now.getMinutes();
+  const curDayStr = today();
+
+  S.bills.forEach(b => {
+    const st = getBillStatus(b, now);
+    if (st.isPaid) return; // sudah lunas, tidak perlu diingatkan
+
+    const remindDays = Array.isArray(b.remindDays) && b.remindDays.length ? b.remindDays : [7, 5, 3, 1, 0];
+    const isTargetDay = remindDays.includes(st.daysLeft) || st.daysLeft === 0 || st.daysLeft < 0;
+    if (!isTargetDay && !force) return;
+
+    // Cek jam pengingat
+    const [targetH] = (b.remindTime || '08:00').split(':').map(Number);
+    const maxFreq = Math.max(1, Math.min(3, b.remindFreq || 1));
+    const notifKey = `notif_bill_${b.id}_${curDayStr}`;
+    const sentCount = +localStorage.getItem(notifKey) || 0;
+
+    // Frekuensi harian:
+    // 1x -> pada atau setelah targetH
+    // 2x -> targetH dan targetH + 8
+    // 3x -> targetH, targetH + 5, targetH + 10
+    let shouldFire = force;
+    if (!force) {
+      if (sentCount === 0 && curHour >= targetH) {
+        shouldFire = true;
+      } else if (sentCount === 1 && maxFreq >= 2 && curHour >= targetH + 7) {
+        shouldFire = true;
+      } else if (sentCount === 2 && maxFreq >= 3 && curHour >= targetH + 11) {
+        shouldFire = true;
+      }
+    }
+
+    if (shouldFire && (force || sentCount < maxFreq)) {
+      let desc = '';
+      if (st.daysLeft === 0) {
+        desc = `Hari ini jatuh tempo pembayaran ${b.name}! Nominal: ${rp(b.amount, true)}.`;
+      } else if (st.daysLeft < 0) {
+        desc = `Peringatan: Tagihan ${b.name} sudah terlewat ${Math.abs(st.daysLeft)} hari! Nominal: ${rp(b.amount, true)}.`;
+      } else {
+        desc = `Jatuh tempo ${st.daysLeft} hari lagi (${fd(st.targetDateStr)}). Nominal: ${rp(b.amount, true)}.`;
+      }
+
+      triggerNotification(`Pengingat Tagihan: ${b.name}`, desc, `bill-${b.id}-${sentCount}`, { url: '/#tagihan' });
+      if (!force) {
+        localStorage.setItem(notifKey, String(sentCount + 1));
+      }
+    }
+  });
+}
 
 function updatePrivacyButtonUI() {
   const iconSpan = $('#privacy-icon');
@@ -614,6 +748,7 @@ function projChart(id, b, t, r, f) {
 const NAV = [
   ['dashboard', 'Dashboard', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>'],
   ['riwayat', 'Riwayat Transaksi', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>'],
+  ['tagihan', 'Jadwal Tagihan', ICONS.bell],
   ['analytics', 'Analisis & Arus Kas', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>'],
   ['target', 'Target & Milestone', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>'],
   ['prediksi', 'Prediksi Waktu', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>'],
@@ -1136,6 +1271,27 @@ function settingsForm(first) {
     </div>
   </section>
   <section class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div>
+        <h3 style="margin:0;display:flex;align-items:center;gap:8px">
+          ${ICONS.bell} Notifikasi & Pengingat Tagihan
+        </h3>
+        <p class="mu" style="margin:4px 0 0;font-size:13px">
+          Atur izin peramban dan uji coba pengiriman push notification pengingat jadwal tagihan ke perangkatmu.
+        </p>
+      </div>
+      <div>
+        <span class="badge ${typeof Notification !== 'undefined' && Notification.permission === 'granted' ? 'ahead' : 'behind'}" style="font-size:12px">
+          ${typeof Notification !== 'undefined' && Notification.permission === 'granted' ? 'Izin Aktif' : 'Belum Aktif'}
+        </span>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px;gap:10px;flex-wrap:wrap">
+      <button type="button" class="btn small" id="btn-cfg-notif-page">Buka Pengaturan & Uji Coba</button>
+      <a href="#tagihan" class="btn ghost small" style="text-decoration:none">Kelola Jadwal Tagihan →</a>
+    </div>
+  </section>
+  <section class="card">
     <h3>Tampilan Tema</h3>
     <p class="mu" style="margin-bottom:12px">Pilih tema tampilan yang paling nyaman untuk matamu.</p>
     <button class="btn ghost" id="th2">Ganti ke ${S.theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}</button>
@@ -1183,6 +1339,7 @@ function settingsForm(first) {
     render();
     toast('Layar tabungan dikunci');
   };
+  if ($('#btn-cfg-notif-page')) $('#btn-cfg-notif-page').onclick = () => openNotificationSettingsModal();
 }
 
 V.setup = () => settingsForm(true);
@@ -1208,7 +1365,34 @@ V.dashboard = () => {
     }
   }
 
+  const upcomingBills = (S.bills || []).map(b => ({ ...b, st: getBillStatus(b) })).filter(x => !x.st.isPaid && (x.st.daysLeft <= 7));
+  const hasUrgent = upcomingBills.some(x => x.st.daysLeft <= 0);
+  const totalUpcomingAmount = upcomingBills.reduce((acc, x) => acc + x.amount, 0);
+
+  let billBannerHtml = '';
+  if (upcomingBills.length > 0) {
+    const dueTodayCount = upcomingBills.filter(x => x.st.daysLeft === 0).length;
+    const overdueCount = upcomingBills.filter(x => x.st.daysLeft < 0).length;
+    let titleText = `Peringatan: Ada ${upcomingBills.length} tagihan jatuh tempo terdekat`;
+    if (overdueCount > 0) {
+      titleText = `Perhatian: Ada ${overdueCount} tagihan yang terlewat jatuh tempo!`;
+    } else if (dueTodayCount > 0) {
+      titleText = `Perhatian: Ada ${dueTodayCount} tagihan jatuh tempo hari ini!`;
+    }
+
+    billBannerHtml = `
+    <div class="bill-banner ${hasUrgent ? 'urgent' : ''}">
+      <div class="bill-banner-icon">${hasUrgent ? ICONS.alert : ICONS.bellRing}</div>
+      <div class="bill-banner-text">
+        <b>${titleText}</b>
+        <p>Total kewajiban tagihan: <b>${rp(totalUpcomingAmount, true)}</b> (${upcomingBills.map(x => esc(x.name)).slice(0, 3).join(', ')}${upcomingBills.length > 3 ? '...' : ''}).</p>
+      </div>
+      <a href="#tagihan" class="btn ${hasUrgent ? 'red' : 'small'}" style="text-decoration:none;white-space:nowrap">Lihat Tagihan →</a>
+    </div>`;
+  }
+
   $('#view').innerHTML = `
+  ${billBannerHtml}
   <div class="stats">
     <div class="card hero">
       <div class="hero-chip-row">
@@ -1411,6 +1595,17 @@ function openDeleteTxModal(id) {
 }
 
 document.addEventListener('click', e => {
+  const bBill = e.target.closest('[data-bill-act]');
+  if (bBill) {
+    const billAct = bBill.dataset.billAct || bBill.getAttribute('data-bill-act');
+    const id = bBill.dataset.id || bBill.getAttribute('data-id');
+    if (billAct === 'pay') openPayBillModal(id);
+    if (billAct === 'unpay') unpayBill(id);
+    if (billAct === 'edit') openBillModal(id);
+    if (billAct === 'del') deleteBill(id);
+    return;
+  }
+
   const b = e.target.closest('[data-a]');
   if (!b) return;
   const { a, id } = b.dataset;
@@ -1422,6 +1617,507 @@ document.addEventListener('click', e => {
     render();
   }
 });
+
+/* ---------- Jadwal Tagihan & Pengingat Notifikasi ---------- */
+function formatRemindDays(days) {
+  if (!Array.isArray(days) || !days.length) return 'Hari H';
+  const labels = { 7: 'H-7', 5: 'H-5', 3: 'H-3', 1: 'H-1', 0: 'Hari H' };
+  return [...days].sort((a, b) => b - a).map(d => labels[d] || `H-${d}`).join(', ');
+}
+
+function openBillModal(id = null) {
+  const isEdit = Boolean(id);
+  const b = (S.bills || []).find(item => String(item.id) === String(id)) || {
+    name: '',
+    amount: '',
+    cat: 'Listrik & Air',
+    dueDay: 20,
+    remindDays: [7, 3, 1, 0],
+    remindTime: '08:00',
+    remindFreq: 1,
+    note: ''
+  };
+
+  const d = $('#dlg');
+  d.innerHTML = `
+  <div>
+    <h3>${isEdit ? 'Edit' : 'Tambah'} Jadwal Tagihan & Pengingat</h3>
+    <p class="mu" style="font-size:13px;margin:0 0 14px;line-height:1.45">
+      Tentukan tanggal jatuh tempo rutin, jam pengingat, dan berapa kali notifikasi dikirimkan menjelang hari pembayaran.
+    </p>
+    <form id="bill-form" style="display:grid;gap:13px">
+      <label>Nama Tagihan
+        <input name="name" required placeholder="Contoh: Listrik PLN, WiFi Indihome, BPJS" value="${esc(b.name)}">
+      </label>
+      <div class="grid2">
+        <label>Nominal Tagihan (Rp)
+          <input name="amount" type="number" min="1" step="1" required placeholder="Contoh: 350000" value="${b.amount || ''}">
+        </label>
+        <label>Kategori
+          <select name="cat">
+            ${BILL_CATS.map(c => `<option value="${c}" ${c === b.cat ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+      <label>Tanggal Jatuh Tempo Rutin (Tiap Bulan)
+        <input name="dueDay" type="number" min="1" max="31" required placeholder="1 - 31" value="${b.dueDay || 20}">
+        <small class="mu" style="font-size:11.5px;margin-top:2px">Contoh: Isi 20 untuk jatuh tempo setiap tanggal 20.</small>
+      </label>
+
+      <!-- Opsi Dihari Apa Diingatkan -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--tx-bright);margin-bottom:6px;display:block">
+          Dihari Apa Saja Ingin Diingatkan?
+        </label>
+        <div class="bill-checkbox-group">
+          <label class="bill-checkbox-tag">
+            <input type="checkbox" name="remindDay" value="7" ${(b.remindDays || []).includes(7) ? 'checked' : ''}>
+            <span>H-7 (1 Minggu Sebelumnya)</span>
+          </label>
+          <label class="bill-checkbox-tag">
+            <input type="checkbox" name="remindDay" value="5" ${(b.remindDays || []).includes(5) ? 'checked' : ''}>
+            <span>H-5 (5 Hari Sebelumnya)</span>
+          </label>
+          <label class="bill-checkbox-tag">
+            <input type="checkbox" name="remindDay" value="3" ${(b.remindDays || []).includes(3) ? 'checked' : ''}>
+            <span>H-3 (3 Hari Sebelumnya)</span>
+          </label>
+          <label class="bill-checkbox-tag">
+            <input type="checkbox" name="remindDay" value="1" ${(b.remindDays || []).includes(1) ? 'checked' : ''}>
+            <span>H-1 (Sehari Sebelumnya)</span>
+          </label>
+          <label class="bill-checkbox-tag">
+            <input type="checkbox" name="remindDay" value="0" ${(b.remindDays || []).includes(0) ? 'checked' : ''}>
+            <span>Hari H (Saat Jatuh Tempo)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Opsi Diingatkan Jam Berapa -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:var(--tx-bright);margin-bottom:6px;display:block">
+          Diingatkan Jam Berapa?
+        </label>
+        <input type="time" name="remindTime" id="bill-time-input" required value="${b.remindTime || '08:00'}" style="max-width:180px">
+        <div class="bill-time-presets">
+          <button type="button" class="bill-time-btn" data-time="08:00">08:00 (Pagi)</button>
+          <button type="button" class="bill-time-btn" data-time="12:00">12:00 (Siang)</button>
+          <button type="button" class="bill-time-btn" data-time="17:00">17:00 (Sore)</button>
+          <button type="button" class="bill-time-btn" data-time="20:00">20:00 (Malam)</button>
+        </div>
+      </div>
+
+      <!-- Opsi Diingatkan Berapa Kali Per Hari -->
+      <label>Diingatkan Berapa Kali Sehari?
+        <select name="remindFreq">
+          <option value="1" ${b.remindFreq === 1 ? 'selected' : ''}>1x Sehari (Pada jam pengingat utama)</option>
+          <option value="2" ${b.remindFreq === 2 ? 'selected' : ''}>2x Sehari (Pagi & Sore / selang 7 jam)</option>
+          <option value="3" ${b.remindFreq === 3 ? 'selected' : ''}>3x Sehari (Pagi, Siang, & Malam)</option>
+        </select>
+      </label>
+
+      <label>Catatan / No. ID Pelanggan (opsional)
+        <input name="note" maxlength="100" placeholder="Contoh: No ID 531234xxx" value="${esc(b.note || '')}">
+      </label>
+
+      <div class="row" style="margin-top:6px">
+        <button type="button" class="btn ghost" id="btn-cancel-bill">Batal</button>
+        <button type="submit" class="btn">${isEdit ? 'Simpan Perubahan' : 'Simpan Jadwal Tagihan'}</button>
+      </div>
+    </form>
+  </div>`;
+
+  if (d.open) d.close();
+  d.showModal();
+
+  $('#btn-cancel-bill').onclick = () => d.close();
+
+  d.querySelectorAll('.bill-time-btn').forEach(btn => {
+    btn.onclick = () => {
+      const timeInput = $('#bill-time-input');
+      if (timeInput) timeInput.value = btn.dataset.time;
+    };
+  });
+
+  $('#bill-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const checkedDays = Array.from(d.querySelectorAll('[name=remindDay]:checked')).map(el => +el.value);
+    const remindDays = checkedDays.length ? checkedDays : [0];
+
+    const billData = {
+      id: isEdit ? b.id : ('b_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5)),
+      name: f.get('name').trim(),
+      amount: Math.max(1, Math.round(+f.get('amount'))),
+      cat: f.get('cat'),
+      dueDay: Math.max(1, Math.min(31, Math.round(+f.get('dueDay')))),
+      remindDays,
+      remindTime: f.get('remindTime') || '08:00',
+      remindFreq: Math.max(1, Math.min(3, Math.round(+f.get('remindFreq')) || 1)),
+      note: (f.get('note') || '').trim(),
+      paidPeriods: b.paidPeriods || []
+    };
+
+    if (!Array.isArray(S.bills)) S.bills = [];
+
+    if (isEdit) {
+      const idx = S.bills.findIndex(item => String(item.id) === String(id));
+      if (idx >= 0) S.bills[idx] = { ...S.bills[idx], ...billData };
+    } else {
+      S.bills.push(billData);
+    }
+
+    save();
+    d.close();
+    toast(isEdit ? 'Jadwal tagihan berhasil diperbarui' : 'Jadwal tagihan baru berhasil ditambahkan');
+    render();
+
+    // Minta izin notifikasi jika belum pernah diatur
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      try {
+        await Notification.requestPermission();
+      } catch (err) {}
+    }
+    checkAndTriggerBillNotifications();
+  };
+}
+
+function openPayBillModal(id) {
+  const b = (S.bills || []).find(item => String(item.id) === String(id));
+  if (!b) return;
+
+  const now = new Date();
+  const curPeriod = `${now.getFullYear()}-${p2(now.getMonth() + 1)}`;
+  const periodName = `${MN[now.getMonth()]} ${now.getFullYear()}`;
+
+  const d = $('#dlg');
+  d.innerHTML = `
+  <div>
+    <h3>Konfirmasi Pembayaran Tagihan</h3>
+    <p class="mu" style="font-size:13px;margin:0 0 14px;line-height:1.5">
+      Apakah tagihan <b>${esc(b.name)}</b> sebesar <b>${rp(b.amount, true)}</b> untuk periode <b>${periodName}</b> sudah selesai kamu bayar?
+    </p>
+
+    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:12px 14px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;margin-bottom:14px">
+      <input type="checkbox" id="pay-auto-deduct" checked style="margin-top:3px">
+      <span style="font-size:13px;line-height:1.4">
+        <b style="color:var(--tx-bright);display:block;margin-bottom:2px">Catat otomatis sebagai penarikan dari tabungan</b>
+        <span class="mu">Otomatis menambahkan catatan transaksi uang keluar sebesar ${rp(b.amount, true)} dengan kategori Kebutuhan pada tanggal hari ini.</span>
+      </span>
+    </label>
+
+    <div class="row">
+      <button type="button" class="btn ghost" id="btn-cancel-pay">Batal</button>
+      <button type="button" class="btn" id="btn-confirm-pay">Tandai Lunas</button>
+    </div>
+  </div>`;
+
+  if (d.open) d.close();
+  d.showModal();
+
+  $('#btn-cancel-pay').onclick = () => d.close();
+  $('#btn-confirm-pay').onclick = () => {
+    const autoDeduct = $('#pay-auto-deduct')?.checked;
+    b.paidPeriods = b.paidPeriods || [];
+    if (!b.paidPeriods.includes(curPeriod)) {
+      b.paidPeriods.push(curPeriod);
+    }
+
+    if (autoDeduct) {
+      commit({
+        type: 'out',
+        amount: b.amount,
+        date: today(),
+        cat: 'Kebutuhan',
+        note: 'Pembayaran tagihan ' + b.name
+      });
+    }
+
+    save();
+    d.close();
+    toast('Tagihan ' + b.name + ' berhasil ditandai lunas');
+    render();
+  };
+}
+
+function unpayBill(id) {
+  const b = (S.bills || []).find(item => String(item.id) === String(id));
+  if (!b) return;
+  const now = new Date();
+  const curPeriod = `${now.getFullYear()}-${p2(now.getMonth() + 1)}`;
+  b.paidPeriods = (b.paidPeriods || []).filter(p => p !== curPeriod);
+  save();
+  toast('Status lunas ' + b.name + ' dibatalkan');
+  render();
+}
+
+function deleteBill(id) {
+  const b = (S.bills || []).find(item => String(item.id) === String(id));
+  if (!b) return;
+  if (!confirm(`Hapus jadwal tagihan ${b.name}?`)) return;
+  S.bills = S.bills.filter(item => String(item.id) !== String(id));
+  save();
+  toast('Jadwal tagihan berhasil dihapus');
+  render();
+}
+
+function openNotificationSettingsModal() {
+  const d = $('#dlg');
+  const perm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
+
+  let statusBadge = '';
+  if (perm === 'granted') {
+    statusBadge = '<span class="bill-status-badge paid">Izin Notifikasi Aktif</span>';
+  } else if (perm === 'denied') {
+    statusBadge = '<span class="bill-status-badge overdue">Izin Ditolak / Diblokir</span>';
+  } else if (perm === 'unsupported') {
+    statusBadge = '<span class="bill-status-badge upcoming">Browser Tidak Mendukung</span>';
+  } else {
+    statusBadge = '<span class="bill-status-badge soon">Belum Diizinkan</span>';
+  }
+
+  d.innerHTML = `
+  <div>
+    <h3>Pengaturan Notifikasi Pengingat</h3>
+    <p class="mu" style="font-size:13px;margin:0 0 14px;line-height:1.5">
+      Notifikasi menggunakan Service Worker (PWA) agar peringatan tagihan dapat muncul di HP atau Laptop sesuai jam dan hari yang kamu tentukan.
+    </p>
+
+    <div class="notif-status-card" style="margin-bottom:14px">
+      <div>
+        <b style="font-size:14px;color:var(--tx-bright);display:block;margin-bottom:3px">Status Izin Peramban</b>
+        <span class="mu" style="font-size:12.5px">${perm === 'granted' ? 'Peramban diizinkan menampilkan notifikasi push latar belakang.' : (perm === 'denied' ? 'Izin diblokir di peramban. Buka ikon setelan/gembok di URL bar untuk mengizinkan.' : 'Peramban memerlukan izinmu untuk mengirimkan notifikasi.')}</span>
+      </div>
+      <div>${statusBadge}</div>
+    </div>
+
+    <div style="display:grid;gap:10px;margin-bottom:14px">
+      ${perm !== 'granted' && perm !== 'unsupported' ? `
+        <button type="button" class="btn" id="btn-request-perm">Aktifkan Izin Notifikasi Web</button>
+      ` : ''}
+      <button type="button" class="btn ghost" id="btn-test-notif">Kirim Notifikasi Uji Coba Sekarang</button>
+    </div>
+
+    <div style="padding:12px 14px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;font-size:12.5px" class="mu">
+      <b style="color:var(--tx-bright);display:block;margin-bottom:4px">Cara Kerja Pengingat:</b>
+      1. Sistem memeriksa tanggal jatuh tempo tagihan yang belum lunas setiap hari.<br>
+      2. Peringatan dikirimkan pada jam pilihanmu di hari H-7, H-5, H-3, H-1, atau Hari H.<br>
+      3. Di HP (Chrome/Edge Android), aplikasi dapat di-install lewat menu "Tambah ke Layar Utama" sebagai PWA agar notifikasi lebih optimal.
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <button type="button" class="btn ghost" id="btn-close-notif-modal" style="width:100%">Tutup</button>
+    </div>
+  </div>`;
+
+  if (d.open) d.close();
+  d.showModal();
+
+  $('#btn-close-notif-modal').onclick = () => d.close();
+
+  if ($('#btn-request-perm')) {
+    $('#btn-request-perm').onclick = async () => {
+      if (typeof Notification !== 'undefined') {
+        const result = await Notification.requestPermission();
+        if (result === 'granted') {
+          toast('Izin notifikasi berhasil diaktifkan');
+        } else {
+          toast('Izin notifikasi tidak diaktifkan');
+        }
+        openNotificationSettingsModal();
+      }
+    };
+  }
+
+  $('#btn-test-notif').onclick = () => {
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      Notification.requestPermission().then(res => {
+        if (res === 'granted') {
+          triggerNotification('Pengingat Tagihan TabunganKu', 'Uji coba berhasil! Notifikasi Service Worker aktif dan siap mengingatkan jadwal tagihanmu.');
+          toast('Notifikasi uji coba dikirim');
+        } else {
+          toast('Izin notifikasi belum diberikan pada peramban');
+        }
+      });
+    } else {
+      triggerNotification('Pengingat Tagihan TabunganKu', 'Uji coba berhasil! Notifikasi Service Worker aktif dan siap mengingatkan jadwal tagihanmu.');
+      toast('Notifikasi uji coba dikirim');
+    }
+  };
+}
+
+V.tagihan = () => {
+  const now = new Date();
+  const curMonthName = MN[now.getMonth()];
+  const curYear = now.getFullYear();
+  const bills = S.bills || [];
+
+  const analyzedBills = bills.map(b => ({
+    ...b,
+    st: getBillStatus(b, now)
+  }));
+
+  const totalCount = analyzedBills.length;
+  const totalAmount = analyzedBills.reduce((acc, b) => acc + b.amount, 0);
+  const paidBills = analyzedBills.filter(b => b.st.isPaid);
+  const paidCount = paidBills.length;
+  const paidAmount = paidBills.reduce((acc, b) => acc + b.amount, 0);
+  const unpaidBills = analyzedBills.filter(b => !b.st.isPaid);
+  const unpaidCount = unpaidBills.length;
+  const unpaidAmount = unpaidBills.reduce((acc, b) => acc + b.amount, 0);
+
+  // Cari tagihan terdekat yang belum lunas
+  const sortedUnpaid = [...unpaidBills].sort((a, b) => a.st.daysLeft - b.st.daysLeft);
+  const nearestBill = sortedUnpaid[0];
+
+  let nearestSnippet = 'Semua Tagihan Lunas';
+  if (nearestBill) {
+    if (nearestBill.st.daysLeft === 0) {
+      nearestSnippet = `${esc(nearestBill.name)} (Hari Ini)`;
+    } else if (nearestBill.st.daysLeft < 0) {
+      nearestSnippet = `${esc(nearestBill.name)} (Terlewat ${Math.abs(nearestBill.st.daysLeft)} hari)`;
+    } else {
+      nearestSnippet = `${esc(nearestBill.name)} (H-${nearestBill.st.daysLeft})`;
+    }
+  }
+
+  let filteredList = analyzedBills;
+  if (billFilter === 'unpaid') filteredList = unpaidBills;
+  if (billFilter === 'paid') filteredList = paidBills;
+
+  // Urutkan: yang belum bayar dan jatuh tempo paling mendesak di atas, yang lunas di bawah
+  filteredList.sort((a, b) => {
+    if (a.st.isPaid !== b.st.isPaid) return a.st.isPaid ? 1 : -1;
+    return a.st.daysLeft - b.st.daysLeft;
+  });
+
+  $('#view').innerHTML = `
+  <div class="stats">
+    ${st4('Total Tagihan ' + curMonthName, rp(totalAmount, true), totalCount + ' tagihan terdaftar', 'sky', ICONS.receipt)}
+    ${st4('Sudah Dibayar (Lunas)', rp(paidAmount, true), paidCount + ' tagihan lunas bulan ini', 'emerald', ICONS.check)}
+    ${st4('Sisa Belum Dibayar', rp(unpaidAmount, true), unpaidCount + ' tagihan menunggu', unpaidCount ? 'rose' : 'emerald', ICONS.alert)}
+    ${st4('Jatuh Tempo Terdekat', nearestSnippet, nearestBill ? rp(nearestBill.amount, true) : 'Bulan ini aman', 'amber', ICONS.clock)}
+  </div>
+
+  <section class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+      <div>
+        <h2 style="margin:0 0 4px">Jadwal Tagihan & Pengingat Rutin</h2>
+        <p class="mu" style="margin:0;font-size:13px">Kelola tanggal jatuh tempo tagihan berkala dan dapatkan notifikasi otomatis ke HP / desktop.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn ghost small" id="btn-bill-notif-cfg">
+          ${ICONS.bell} Pengaturan & Uji Notifikasi
+        </button>
+        <button type="button" class="btn small" id="btn-add-bill">
+          + Tambah Jadwal Tagihan
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--bd)">
+      <div class="range-pills" id="bill-filter-pills">
+        <button type="button" class="range-pill ${billFilter === 'all' ? 'active' : ''}" data-bf="all">Semua (${totalCount})</button>
+        <button type="button" class="range-pill ${billFilter === 'unpaid' ? 'active' : ''}" data-bf="unpaid">Belum Bayar (${unpaidCount})</button>
+        <button type="button" class="range-pill ${billFilter === 'paid' ? 'active' : ''}" data-bf="paid">Sudah Lunas (${paidCount})</button>
+      </div>
+      <div class="mu" style="font-size:12px">
+        Periode: <b>${curMonthName} ${curYear}</b>
+      </div>
+    </div>
+
+    <!-- Bill Cards Grid -->
+    ${!bills.length ? `
+      <div style="text-align:center;padding:40px 20px;border:1px dashed var(--bd);border-radius:var(--r)">
+        <div style="width:48px;height:48px;border-radius:14px;background:var(--bg2);color:var(--mu);display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+          ${ICONS.receipt}
+        </div>
+        <h3 style="margin:0 0 6px;color:var(--tx-bright)">Belum Ada Jadwal Tagihan</h3>
+        <p class="mu" style="font-size:13px;max-width:440px;margin:0 auto 16px">
+          Daftarkan tagihan rutinmu seperti listrik, air, internet, cicilan, atau sewa rumah agar kamu selalu diingatkan tepat waktu sebelum jatuh tempo.
+        </p>
+        <button type="button" class="btn" id="btn-add-bill-empty">+ Tambah Tagihan Pertama</button>
+      </div>
+    ` : (!filteredList.length ? `
+      <p class="mu empty" style="padding:28px 0">Tidak ada tagihan pada filter ini.</p>
+    ` : `
+      <div class="bill-grid">
+        ${filteredList.map(b => {
+          const st = b.st;
+          return `
+          <div class="bill-card ${st.cls}">
+            <div class="bill-header">
+              <div class="bill-title-wrap">
+                <span class="bill-cat">${ICONS.receipt} ${esc(b.cat)}</span>
+                <div class="bill-title">${esc(b.name)}</div>
+                <div class="bill-amount">${rp(b.amount, true)}</div>
+              </div>
+              <div>
+                <span class="bill-status-badge ${st.cls}">
+                  ${st.isPaid ? ICONS.check : (st.status === 'today' || st.status === 'overdue' ? ICONS.alert : ICONS.clock)}
+                  ${st.badge}
+                </span>
+              </div>
+            </div>
+
+            <div class="bill-details">
+              <div class="bill-detail-row">
+                <span class="label">${ICONS.clock} Jatuh Tempo:</span>
+                <span class="val">Tgl ${b.dueDay} setiap bulan (${fd(st.targetDateStr)})</span>
+              </div>
+              <div class="bill-detail-row">
+                <span class="label">${ICONS.bell} Jam Diingatkan:</span>
+                <span class="val">${b.remindTime || '08:00'} WIB</span>
+              </div>
+              <div class="bill-detail-row">
+                <span class="label">Hari Pengingat:</span>
+                <span class="val">${formatRemindDays(b.remindDays)}</span>
+              </div>
+              <div class="bill-detail-row">
+                <span class="label">Frekuensi Harian:</span>
+                <span class="val">${b.remindFreq || 1}x sehari</span>
+              </div>
+              ${b.note ? `
+                <div class="bill-detail-row">
+                  <span class="label">Catatan / ID:</span>
+                  <span class="val">${esc(b.note)}</span>
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="bill-actions">
+              ${st.isPaid ? `
+                <button type="button" class="btn ghost small" onclick="unpayBill('${b.id}')">Batalkan Lunas</button>
+              ` : `
+                <button type="button" class="btn small" onclick="openPayBillModal('${b.id}')">Tandai Lunas</button>
+              `}
+              <button type="button" class="ib" onclick="openBillModal('${b.id}')" title="Edit Tagihan">Edit</button>
+              <button type="button" class="ib" onclick="deleteBill('${b.id}')" title="Hapus Tagihan">Hapus</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    `)}
+  </section>`;
+
+  if ($('#btn-add-bill')) $('#btn-add-bill').onclick = () => openBillModal();
+  if ($('#btn-add-bill-empty')) $('#btn-add-bill-empty').onclick = () => openBillModal();
+  if ($('#btn-bill-notif-cfg')) $('#btn-bill-notif-cfg').onclick = () => openNotificationSettingsModal();
+
+  document.querySelectorAll('#bill-filter-pills .range-pill').forEach(btn => {
+    btn.onclick = () => {
+      billFilter = btn.dataset.bf;
+      render();
+    };
+  });
+};
+
+window.openBillModal = openBillModal;
+window.openPayBillModal = openPayBillModal;
+window.unpayBill = unpayBill;
+window.deleteBill = deleteBill;
+window.openNotificationSettingsModal = openNotificationSettingsModal;
 
 /* ---------- Riwayat Transaksi ---------- */
 const F = { q: '', t: '', c: '', m: '' };
@@ -1971,11 +2667,14 @@ V.kalender = () => {
     const isToday = ds === today();
     const isSel = ds === selectedCalDate;
 
+    const dayBills = (S.bills || []).filter(b => Math.min(b.dueDay || 1, dim) === d);
+
     cells += `<div class="day-cell ${isSched ? 'sc' : ''} ${isToday ? 'td' : ''} ${isSel ? 'selected' : ''}" data-date="${ds}">
       <span>${d}</span>
-      <div style="margin-top:2px">
+      <div style="margin-top:2px;display:flex;gap:2px;justify-content:center">
         ${x.in ? '<span class="dt in" title="Ada setoran"></span>' : ''}
         ${x.out ? '<span class="dt out" title="Ada penarikan"></span>' : ''}
+        ${dayBills.length ? '<span class="dt" style="background:var(--amb)" title="Ada jadwal tagihan"></span>' : ''}
       </div>
     </div>`;
   }
@@ -2027,6 +2726,12 @@ V.kalender = () => {
   const curDetail = map[selectedCalDate] || { in: 0, out: 0, sumIn: 0, sumOut: 0, list: [] };
   const curSched = sched(selectedCalDate);
 
+  const selDateObj = pd(selectedCalDate);
+  const selDay = selDateObj.getDate();
+  const selPeriod = `${selDateObj.getFullYear()}-${p2(selDateObj.getMonth() + 1)}`;
+  const selDim = new Date(selDateObj.getFullYear(), selDateObj.getMonth() + 1, 0).getDate();
+  const calBills = (S.bills || []).filter(b => Math.min(b.dueDay || 1, selDim) === selDay);
+
   $('#view').innerHTML = `
   <section class="card">
     <div class="cal-controls">
@@ -2052,6 +2757,7 @@ V.kalender = () => {
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12px" class="mu">
       <span><span class="dt in"></span> Setoran</span>
       <span><span class="dt out"></span> Penarikan</span>
+      <span><span class="dt" style="background:var(--amb)"></span> Jadwal Tagihan</span>
       <span>Jadwal setoran rutin</span>
       <span><b>Bold</b> Hari ini</span>
     </div>
@@ -2061,10 +2767,30 @@ V.kalender = () => {
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
         <div>
           <b style="font-size:15px;color:var(--tx-bright)">Tanggal: ${fdo(pd(selectedCalDate))}</b>
-          ${curSched ? '<span class="pill ahead" style="margin-left:8px">Jadwal Rutin</span>' : ''}
+          ${curSched ? '<span class="pill ahead" style="margin-left:8px">Jadwal Tabungan Rutin</span>' : ''}
         </div>
         <button class="btn small" id="btn-add-day">+ Catat Transaksi di Tanggal Ini</button>
       </div>
+
+      ${calBills.length ? `
+        <div style="margin-top:8px;padding:10px 14px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">
+          <b style="font-size:13px;color:var(--tx-bright);display:flex;align-items:center;gap:6px;margin-bottom:8px">
+            ${ICONS.receipt} Jadwal Jatuh Tempo Tagihan (${calBills.length})
+          </b>
+          <div style="display:grid;gap:6px">
+            ${calBills.map(b => {
+              const isPaid = (b.paidPeriods || []).includes(selPeriod);
+              return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:12.5px;gap:8px">
+                <span>${esc(b.name)} <span class="mu">(${esc(b.cat)})</span></span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <b>${rp(b.amount, true)}</b>
+                  <span class="bill-status-badge ${isPaid ? 'paid' : 'soon'}" style="font-size:10.5px;padding:2px 8px">${isPaid ? 'Lunas' : 'Belum Lunas'}</span>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
 
       ${curDetail.list.length ? `
         <div style="display:flex;gap:14px;font-size:13px;margin:6px 0">
@@ -2391,3 +3117,23 @@ if (sb) {
 } else {
   renderAuthUI();
 }
+
+// Inisialisasi PWA & Service Worker untuk Notifikasi Latar Belakang
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => {
+        checkAndTriggerBillNotifications();
+      })
+      .catch(err => console.warn('Service Worker register error:', err));
+  });
+}
+
+// Pemeriksaan berkala saat tab aktif / fokus
+window.addEventListener('focus', () => {
+  checkAndTriggerBillNotifications();
+});
+setInterval(() => {
+  checkAndTriggerBillNotifications();
+}, 15 * 60 * 1000);
+

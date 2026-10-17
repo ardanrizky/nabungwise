@@ -1,0 +1,16 @@
+{
+  "name": "TabunganKu – Smart Savings & Bill Reminder",
+  "short_name": "TabunganKu",
+  "description": "Aplikasi tabungan pribadi dan pengingat jadwal tagihan otomatis",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
