@@ -11,10 +11,11 @@ let currentUser = null;
 let S = (() => {
   let d;
   try { d = JSON.parse(localStorage.getItem(K)); } catch (e) {}
-  return Object.assign({ s: null, tx: [], ms: [], log: [], theme: 'dark' }, d && typeof d === 'object' ? d : {});
+  return Object.assign({ s: null, tx: [], ms: [], log: [], theme: 'dark', hideBalance: false }, d && typeof d === 'object' ? d : {});
 })();
 
 let isUnlocked = false;
+let isBalanceHidden = Boolean(S.hideBalance);
 const isPinActive = () => Boolean(S?.s?._security?.pinEnabled && S?.s?._security?.pinHash);
 
 async function hashPin(pin) {
@@ -96,7 +97,10 @@ const save = () => {
   syncToCloud();
 };
 
-const rp = n => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n || 0);
+const rp = (n, forceShow = false) => {
+  if (isBalanceHidden && !forceShow) return 'Rp ••••••••';
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n || 0);
+};
 const p2 = n => String(n).padStart(2, '0'), iso = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`, today = () => iso(new Date());
 const pd = s => new Date(s + 'T00:00:00'), fd = s => pd(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 const fdo = d => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -123,9 +127,30 @@ const ICONS = {
   shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
   wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M7 15h0M2 9.5h20"></path></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>',
-  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>',
-  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
+  eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>'
 };
+
+function updatePrivacyButtonUI() {
+  const iconSpan = $('#privacy-icon');
+  const labelSpan = $('#privacy-label');
+  const btn = $('#btn-privacy');
+  if (!btn) return;
+  if (iconSpan) iconSpan.innerHTML = isBalanceHidden ? ICONS.eyeOff : ICONS.eye;
+  if (labelSpan) labelSpan.textContent = isBalanceHidden ? 'Sembunyi' : 'Privasi';
+  btn.title = isBalanceHidden ? 'Tampilkan Nominal Saldo' : 'Sembunyikan Nominal Saldo';
+}
+
+function toggleBalancePrivacy() {
+  isBalanceHidden = !isBalanceHidden;
+  S.hideBalance = isBalanceHidden;
+  save();
+  updatePrivacyButtonUI();
+  render();
+  toast(isBalanceHidden ? 'Nominal saldo disembunyikan' : 'Nominal saldo ditampilkan');
+}
 
 /* ---------- Perhitungan & Forecasting Dinamis ---------- */
 const sum = (t, l = S.tx) => l.filter(x => x.type === t).reduce((a, x) => a + x.amount, 0);
@@ -1055,7 +1080,12 @@ V.dashboard = () => {
         </div>
         <span class="hero-chip-badge" style="background:rgba(255,255,255,0.2)">${c.pct.toFixed(1)}% Terkumpul</span>
       </div>
-      <div class="hero-balance-label">Total Saldo Terkini</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div class="hero-balance-label" style="margin-bottom:0">Total Saldo Terkini</div>
+        <button type="button" class="hero-privacy-btn" id="hero-eye-toggle" title="${isBalanceHidden ? 'Tampilkan Nominal Saldo' : 'Sembunyikan Nominal Saldo'}">
+          ${isBalanceHidden ? ICONS.eyeOff : ICONS.eye}
+        </button>
+      </div>
       <div class="hero-balance">${rp(c.bal)}</div>
       <div class="hero-meta-row">
         <div class="hero-meta-item">Saldo Awal: <b>${rp(s.initial)}</b></div>
@@ -1105,16 +1135,17 @@ V.dashboard = () => {
       </h3>
       <a href="#riwayat" class="btn ghost small" style="text-decoration:none">Lihat Semua →</a>
     </div>
-    ${rows(sorted(S.tx).slice(0, 5))}
+    ${rows(sorted(S.tx).slice(0, 5), true)}
   </section>`;
 
+  if ($('#hero-eye-toggle')) $('#hero-eye-toggle').onclick = toggleBalancePrivacy;
   const b = balSeries();
   chart('c1', b.L, [{ N: 'Saldo Tabungan', c: GR, D: b.D, area: 1 }]);
 };
 
 /* ---------- Transaksi Modal ---------- */
 function openTx(id, defaultDate) {
-  const x = S.tx.find(t => t.id === id) || { type: 'in', date: defaultDate || today(), cat: '', note: '' };
+  const x = S.tx.find(t => String(t.id) === String(id)) || { type: 'in', date: defaultDate || today(), cat: '', note: '' };
   const d = $('#dlg');
   d.innerHTML = `<form id="tf"><h3>${id ? 'Edit' : 'Tambah'} Transaksi</h3>
   <div class="seg">
@@ -1151,7 +1182,7 @@ function openTx(id, defaultDate) {
 
 function attempt(n, id) {
   if (!$('#dlg').open || !(n.amount > 0)) return;
-  const list = S.tx.filter(t => t.id !== id).concat([{ ...n, id: 'temp' }]);
+  const list = S.tx.filter(t => String(t.id) !== String(id)).concat([{ ...n, id: id || 'temp' }]);
   const a = calc(), b = calc(list);
   if (b.bal < 0) {
     toast('Saldo tabungan tidak mencukupi untuk melakukan penarikan sebesar nominal tersebut');
@@ -1161,11 +1192,11 @@ function attempt(n, id) {
 
   const e = est(b.bal);
   $('#dlg').innerHTML = `<div><h3>Konfirmasi Dampak Penarikan</h3><div class="imp">
-  <div>Saldo Tabungan<b>${rp(a.bal)} → ${rp(b.bal)}</b></div>
+  <div>Saldo Tabungan<b>${rp(a.bal, true)} → ${rp(b.bal, true)}</b></div>
   <div>Progres Target<b>${a.pct.toFixed(1)}% → ${b.pct.toFixed(1)}%</b></div>
-  <div>Sisa Target<b>${rp(a.rem)} → ${rp(b.rem)}</b></div>
+  <div>Sisa Target<b>${rp(a.rem, true)} → ${rp(b.rem, true)}</b></div>
   <div>Estimasi Tercapai<b>${e ? (e.done ? 'Tercapai' : fdo(e.d)) : '-'}</b></div></div>
-  <p class="mu" style="margin-top:10px">Penarikan ${rp(n.amount)} akan memperlambat jadwal pencapaian target tabunganmu.</p>
+  <p class="mu" style="margin-top:10px">Penarikan ${rp(n.amount, true)} akan memperlambat jadwal pencapaian target tabunganmu.</p>
   <div class="row"><button class="btn ghost" id="bk">Batal</button><button class="btn red" id="ok">Tetap Tarik Dana</button></div></div>`;
   $('#bk').onclick = () => $('#dlg').close();
   $('#ok').onclick = () => { $('#ok').disabled = true; commit(n, id); };
@@ -1173,9 +1204,9 @@ function attempt(n, id) {
 
 function commit(n, id) {
   if (id) {
-    const i = S.tx.findIndex(t => t.id === id);
+    const i = S.tx.findIndex(t => String(t.id) === String(id));
     if (i < 0) return;
-    S.tx[i] = { ...S.tx[i], ...n, id };
+    S.tx[i] = { ...S.tx[i], ...n, id: S.tx[i].id };
   } else {
     S.tx.push({
       ...n,
@@ -1189,21 +1220,51 @@ function commit(n, id) {
   render();
 }
 
+function openDeleteTxModal(id) {
+  const x = S.tx.find(t => String(t.id) === String(id));
+  if (!x) {
+    toast('Transaksi tidak ditemukan');
+    return;
+  }
+
+  const d = $('#dlg');
+  d.innerHTML = `
+  <div>
+    <h3>Hapus Catatan Transaksi</h3>
+    <p class="mu" style="font-size:13px;margin:0 0 14px;line-height:1.5">
+      Apakah kamu yakin ingin menghapus transaksi <b>${x.type === 'in' ? 'Setoran' : 'Penarikan'} (${rp(x.amount, true)})</b> kategori <b>${esc(x.cat)}</b> pada tanggal <b>${fd(x.date)}</b>? Saldo tabungan akan otomatis dihitung ulang.
+    </p>
+    <div class="row">
+      <button type="button" class="btn ghost" id="btn-cancel-del">Batal</button>
+      <button type="button" class="btn red" id="btn-confirm-del">Hapus Transaksi</button>
+    </div>
+  </div>`;
+  d.showModal();
+
+  $('#btn-cancel-del').onclick = () => d.close();
+  $('#btn-confirm-del').onclick = () => {
+    const t = S.tx.filter(item => String(item.id) !== String(id));
+    if (calc(t).bal < 0) {
+      d.close();
+      toast('Tidak bisa dihapus karena menyebabkan saldo tabungan menjadi negatif');
+      return;
+    }
+    S.tx = t;
+    save();
+    d.close();
+    toast('Transaksi berhasil dihapus');
+    render();
+  };
+}
+
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-a]');
   if (!b) return;
   const { a, id } = b.dataset;
   if (a === 'edit') openTx(id);
-  if (a === 'del' && confirm('Hapus transaksi ini? Saldo dan proyeksi akan dihitung ulang.')) {
-    const t = S.tx.filter(x => x.id !== id);
-    if (calc(t).bal < 0) return toast('Tidak bisa dihapus karena menyebabkan saldo tabungan menjadi negatif');
-    S.tx = t;
-    save();
-    toast('Transaksi berhasil dihapus');
-    render();
-  }
+  if (a === 'del') openDeleteTxModal(id);
   if (a === 'delms') {
-    S.ms = S.ms.filter(m => m.id !== id);
+    S.ms = S.ms.filter(m => String(m.id) !== String(id));
     save();
     render();
   }
@@ -1604,6 +1665,26 @@ V.kalender = () => {
     </div>`;
   }
 
+  // Rentang pilihan tahun
+  const curY = new Date().getFullYear();
+  let minYear = curY - 3;
+  let maxYear = curY + 7;
+  S.tx.forEach(t => {
+    const yVal = parseInt(t.date.slice(0, 4), 10);
+    if (!isNaN(yVal)) {
+      if (yVal < minYear) minYear = yVal;
+      if (yVal > maxYear) maxYear = yVal;
+    }
+  });
+  if (S.s && S.s.start) {
+    const sYear = parseInt(S.s.start.slice(0, 4), 10);
+    if (!isNaN(sYear) && sYear < minYear) minYear = sYear;
+  }
+  const yearsList = [];
+  for (let yr = minYear; yr <= maxYear; yr++) {
+    yearsList.push(yr);
+  }
+
   // Ringkasan target mingguan pada bulan kalender
   const unitFactor = DAYS[S.s.freq] || 7;
   const wt = (S.s.routine * 7) / unitFactor;
@@ -1633,10 +1714,24 @@ V.kalender = () => {
 
   $('#view').innerHTML = `
   <section class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <button class="ib" id="pv" title="Bulan sebelumnya">‹</button>
-      <h3 style="margin:0">${MN[m]} ${y}</h3>
-      <button class="ib" id="nx" title="Bulan berikutnya">›</button>
+    <div class="cal-controls">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button class="ib" id="pv" title="Bulan sebelumnya">‹</button>
+        <select id="cal-sel-m" class="cal-select" title="Pilih Bulan">
+          ${MN.map((name, idx) => `<option value="${idx}" ${idx === m ? 'selected' : ''}>${name}</option>`).join('')}
+        </select>
+        <select id="cal-sel-y" class="cal-select" title="Pilih Tahun">
+          ${yearsList.map(yr => `<option value="${yr}" ${yr === y ? 'selected' : ''}>${yr}</option>`).join('')}
+        </select>
+        <button class="ib" id="nx" title="Bulan berikutnya">›</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn ghost small" id="cal-today-btn">Hari Ini</button>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;margin:0" class="mu">
+          Pilih Tanggal:
+          <input type="date" id="cal-jump-input" value="${selectedCalDate}" style="padding:5px 8px;font-size:12.5px;border-radius:8px">
+        </label>
+      </div>
     </div>
     <div class="cal">${cells}</div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:12px" class="mu">
@@ -1680,6 +1775,32 @@ V.kalender = () => {
     CM.m++;
     if (CM.m > 11) { CM.m = 0; CM.y++; }
     render();
+  };
+
+  $('#cal-sel-m').onchange = e => {
+    CM.m = +e.target.value;
+    render();
+  };
+  $('#cal-sel-y').onchange = e => {
+    CM.y = +e.target.value;
+    render();
+  };
+  $('#cal-today-btn').onclick = () => {
+    const now = new Date();
+    CM.y = now.getFullYear();
+    CM.m = now.getMonth();
+    selectedCalDate = today();
+    render();
+  };
+  $('#cal-jump-input').onchange = e => {
+    const val = e.target.value;
+    if (val) {
+      const d = pd(val);
+      CM.y = d.getFullYear();
+      CM.m = d.getMonth();
+      selectedCalDate = val;
+      render();
+    }
   };
 
   $('#btn-add-day').onclick = () => openTx(null, selectedCalDate);
@@ -1815,15 +1936,79 @@ V.backup = () => {
     const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
     dl(`transaksi-${today()}.csv`, '\ufeffTanggal,Jenis,Kategori,Nominal,Catatan\n' + sorted(S.tx).map(x => [x.date, x.type === 'in' ? 'Setoran' : 'Penarikan', x.cat, x.amount, x.note].map(q).join(',')).join('\n'), 'text/csv');
   };
-  $('#rs').onclick = () => {
-    if (confirm('PERINGATAN: Yakin ingin menghapus SEMUA data? Tindakan ini tidak dapat dibatalkan.')) {
-      S = { s: null, tx: [], ms: [], log: [], theme: S.theme };
-      save();
-      location.hash = '';
-      render();
-    }
-  };
+  $('#rs').onclick = () => openResetDataModal();
 };
+
+function openResetDataModal() {
+  const d = $('#dlg');
+  const sec = S.s?._security || {};
+  const hasPin = isPinActive();
+
+  d.innerHTML = `
+  <div>
+    <h3 style="color:var(--red)">Peringatan Reset Seluruh Data</h3>
+    <p class="mu" style="font-size:13px;margin:0 0 14px;line-height:1.5">
+      Tindakan ini akan <b>menghapus seluruh transaksi, riwayat saldo, target tabungan, dan log</b> secara permanen. Pastikan kamu sudah mengunduh file cadangan JSON sebelum melanjutkan.
+    </p>
+
+    <div id="reset-err" style="display:none;padding:10px 12px;border-radius:10px;font-size:13px;background:rgba(248,113,113,.15);color:var(--red);margin-bottom:12px"></div>
+
+    <form id="reset-form" style="display:grid;gap:12px">
+      ${hasPin ? `
+        <label style="text-align:center">
+          <span style="display:block;margin-bottom:6px">Masukkan PIN Keamanan untuk Konfirmasi:</span>
+          <input type="password" id="reset-pin-input" class="pin-input" maxlength="8" inputmode="numeric" pattern="[0-9]*" placeholder="••••" required autofocus style="margin:4px auto">
+        </label>
+      ` : `
+        <label>
+          <span style="display:block;margin-bottom:6px">Ketik kata <b>RESET</b> dengan huruf besar untuk mengonfirmasi:</span>
+          <input type="text" id="reset-confirm-text" placeholder="Ketik RESET" required autofocus autocomplete="off">
+        </label>
+      `}
+      <div class="row" style="margin-top:6px">
+        <button type="button" class="btn ghost" id="btn-cancel-reset">Batal</button>
+        <button type="submit" class="btn red">Hapus & Reset Sekarang</button>
+      </div>
+    </form>
+  </div>`;
+
+  d.showModal();
+
+  $('#btn-cancel-reset').onclick = () => d.close();
+
+  $('#reset-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const errBox = $('#reset-err');
+
+    if (hasPin) {
+      const pinVal = $('#reset-pin-input').value.trim();
+      const h = await hashPin(pinVal);
+      if (h !== sec.pinHash) {
+        errBox.textContent = 'PIN keamanan salah. Tindakan reset dibatalkan.';
+        errBox.style.display = 'block';
+        $('#reset-pin-input').value = '';
+        $('#reset-pin-input').classList.add('pin-error');
+        setTimeout(() => $('#reset-pin-input')?.classList.remove('pin-error'), 450);
+        return;
+      }
+    } else {
+      const textVal = $('#reset-confirm-text').value.trim();
+      if (textVal !== 'RESET') {
+        errBox.textContent = 'Konfirmasi teks tidak cocok. Silakan ketik RESET.';
+        errBox.style.display = 'block';
+        return;
+      }
+    }
+
+    S = { s: null, tx: [], ms: [], log: [], theme: S.theme, hideBalance: false };
+    isUnlocked = true;
+    save();
+    d.close();
+    location.hash = '';
+    render();
+    toast('Seluruh data tabungan berhasil direset');
+  };
+}
 
 /* ---------- Tema & Inisialisasi ---------- */
 function applyTheme() {
@@ -1856,6 +2041,7 @@ $('#add').onclick = () => openTx();
 $('#mb').onclick = openSide;
 if ($('#sb-close')) $('#sb-close').onclick = closeSide;
 if ($('#side-overlay')) $('#side-overlay').onclick = closeSide;
+if ($('#btn-privacy')) $('#btn-privacy').onclick = toggleBalancePrivacy;
 if ($('#btn-lock')) {
   $('#btn-lock').onclick = () => {
     if (isPinActive()) {
@@ -1868,6 +2054,7 @@ if ($('#btn-lock')) {
 window.addEventListener('hashchange', render);
 
 applyTheme();
+updatePrivacyButtonUI();
 render();
 
 // Inisialisasi Sesi Supabase Auth & Cloud Sync
