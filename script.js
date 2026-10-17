@@ -14,6 +14,28 @@ let S = (() => {
   return Object.assign({ s: null, tx: [], ms: [], log: [], theme: 'dark' }, d && typeof d === 'object' ? d : {});
 })();
 
+let isUnlocked = false;
+const isPinActive = () => Boolean(S?.s?._security?.pinEnabled && S?.s?._security?.pinHash);
+
+async function hashPin(pin) {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    try {
+      const msgUint8 = new TextEncoder().encode('nabungwise_salt_' + pin);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      console.warn('Crypto subtle error, fallback to simple hash:', e);
+    }
+  }
+  let hash = 0;
+  for (let i = 0; i < pin.length; i++) {
+    hash = ((hash << 5) - hash) + pin.charCodeAt(i);
+    hash |= 0;
+  }
+  return 'fallback_' + Math.abs(hash);
+}
+
 async function syncToCloud() {
   if (!sb || !currentUser) return;
   try {
@@ -443,6 +465,20 @@ const NAV = [
 $('#nav').innerHTML = NAV.map(n => `<a href="#${n[0]}">${n[2]}<span>${n[1]}</span></a>`).join('');
 
 function render() {
+  if (isPinActive() && !isUnlocked) {
+    document.body.classList.add('locked');
+    const btnLock = $('#btn-lock'); if (btnLock) btnLock.style.display = 'none';
+    if (window.innerWidth <= 900) {
+      const side = $('#side'); if (side) side.classList.remove('open');
+      const ov = $('#side-overlay'); if (ov) ov.classList.remove('show');
+    }
+    renderLockScreen();
+    return;
+  }
+
+  document.body.classList.remove('locked');
+  const btnLock = $('#btn-lock'); if (btnLock) btnLock.style.display = isPinActive() ? 'inline-flex' : 'none';
+
   const v = S.s ? (location.hash.slice(1) || 'dashboard') : 'setup';
   const f = V[v] || V.dashboard;
   document.body.classList.toggle('nosetup', !S.s);
@@ -603,6 +639,291 @@ async function handleLogout() {
   }
 }
 
+/* ---------- Layar Kunci & Manajemen PIN Keamanan ---------- */
+function renderLockScreen() {
+  const sec = S.s?._security || {};
+  $('#view').innerHTML = `
+  <div class="lock-screen-wrap">
+    <div class="lock-card">
+      <div class="lock-icon-wrap">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+      </div>
+      <div class="lock-title">Tabungan Terkunci</div>
+      <p class="lock-sub">Masukkan PIN keamanan untuk mengakses data dan saldo tabunganmu.</p>
+      <form id="lock-form">
+        <div class="pin-input-wrap">
+          <input type="password" id="pin-field" class="pin-input" maxlength="8" inputmode="numeric" pattern="[0-9]*" placeholder="••••" autofocus autocomplete="off" required>
+          <div id="pin-err-msg" style="display:none;color:var(--red);font-size:13px;font-weight:500;"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
+          <button type="submit" class="btn" style="width:100%;max-width:260px;justify-content:center" id="btn-unlock-submit">
+            <span>Buka Kunci</span>
+          </button>
+          <button type="button" class="btn ghost small" id="btn-forgot-pin" style="font-size:12.5px;color:var(--mu)">
+            Lupa PIN Keamanan?
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+
+  const pinInput = $('#pin-field');
+  const form = $('#lock-form');
+  const errMsg = $('#pin-err-msg');
+
+  if (pinInput) {
+    setTimeout(() => pinInput.focus(), 80);
+  }
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const val = pinInput.value.trim();
+    if (!val) return;
+    const h = await hashPin(val);
+    if (h === sec.pinHash) {
+      isUnlocked = true;
+      document.body.classList.remove('locked');
+      render();
+      toast('Kunci layar dibuka');
+    } else {
+      pinInput.classList.add('pin-error');
+      errMsg.textContent = 'PIN yang kamu masukkan salah';
+      errMsg.style.display = 'block';
+      pinInput.value = '';
+      setTimeout(() => pinInput.classList.remove('pin-error'), 450);
+    }
+  };
+
+  const btnForgot = $('#btn-forgot-pin');
+  if (btnForgot) btnForgot.onclick = openForgotPinModal;
+}
+
+function openSetPinModal(isChange = false) {
+  const d = $('#dlg');
+  const sec = S.s?._security || {};
+
+  d.innerHTML = `
+  <div>
+    <h3>${isChange ? 'Ubah PIN Keamanan' : 'Pasang PIN Keamanan Tabungan'}</h3>
+    <p class="mu" style="font-size:13px;margin:0 0 14px">
+      ${isChange 
+        ? 'Masukkan PIN lama dan tentukan PIN baru untuk mengunci aplikasi saat dibuka.' 
+        : 'Tentukan 4 sampai 6 digit angka rahasia agar saldo tabunganmu terlindungi saat membuka web ini.'}
+    </p>
+    <div id="pin-modal-err" style="display:none;padding:10px 12px;border-radius:10px;font-size:13px;background:rgba(248,113,113,.15);color:var(--red);margin-bottom:12px"></div>
+    <form id="set-pin-form" style="display:grid;gap:12px">
+      ${isChange ? `
+        <label>PIN Lama Saat Ini
+          <input type="password" id="old-pin" maxlength="8" inputmode="numeric" pattern="[0-9]*" placeholder="Masukkan PIN lama" required>
+        </label>
+      ` : ''}
+      <label>PIN Baru (4 - 6 digit angka)
+        <input type="password" id="new-pin" maxlength="8" inputmode="numeric" pattern="[0-9]*" placeholder="Contoh: 123456" required>
+      </label>
+      <label>Konfirmasi PIN Baru
+        <input type="password" id="confirm-pin" maxlength="8" inputmode="numeric" pattern="[0-9]*" placeholder="Ulangi PIN baru" required>
+      </label>
+      <label>Petunjuk / Hint PIN (opsional)
+        <input type="text" id="pin-hint" maxlength="50" placeholder="Contoh: Tahun lahir atau nomor penting" value="${esc(sec.hint || '')}">
+      </label>
+      <div class="row" style="margin-top:4px">
+        <button type="button" class="btn ghost" id="btn-cancel-pin">Batal</button>
+        <button type="submit" class="btn">${isChange ? 'Perbarui PIN' : 'Aktifkan Kunci PIN'}</button>
+      </div>
+    </form>
+  </div>`;
+
+  d.showModal();
+
+  $('#btn-cancel-pin').onclick = () => d.close();
+
+  $('#set-pin-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const errBox = $('#pin-modal-err');
+    const showErr = msg => {
+      errBox.textContent = msg;
+      errBox.style.display = 'block';
+    };
+
+    if (isChange) {
+      const oldVal = $('#old-pin').value.trim();
+      const oldHash = await hashPin(oldVal);
+      if (oldHash !== sec.pinHash) {
+        showErr('PIN lama yang kamu masukkan tidak sesuai.');
+        return;
+      }
+    }
+
+    const newPin = $('#new-pin').value.trim();
+    const confirmPin = $('#confirm-pin').value.trim();
+    const hint = $('#pin-hint').value.trim();
+
+    if (!/^\d{4,8}$/.test(newPin)) {
+      showErr('PIN harus berupa 4 hingga 8 digit angka.');
+      return;
+    }
+    if (newPin !== confirmPin) {
+      showErr('Konfirmasi PIN tidak cocok dengan PIN baru.');
+      return;
+    }
+
+    const pinHash = await hashPin(newPin);
+    if (!S.s) S.s = {};
+    S.s._security = {
+      pinEnabled: true,
+      pinHash,
+      hint
+    };
+    isUnlocked = true;
+    save();
+    d.close();
+    render();
+    toast(isChange ? 'PIN keamanan berhasil diubah' : 'PIN keamanan berhasil diaktifkan');
+  };
+}
+
+function openDisablePinModal() {
+  const d = $('#dlg');
+  const sec = S.s?._security || {};
+
+  d.innerHTML = `
+  <div>
+    <h3>Nonaktifkan PIN Keamanan</h3>
+    <p class="mu" style="font-size:13px;margin:0 0 14px">Masukkan PIN keamanan saat ini untuk menonaktifkan proteksi kunci layar.</p>
+    <div id="disable-pin-err" style="display:none;padding:10px 12px;border-radius:10px;font-size:13px;background:rgba(248,113,113,.15);color:var(--red);margin-bottom:12px"></div>
+    <form id="disable-pin-form" style="display:grid;gap:12px">
+      <label>PIN Saat Ini
+        <input type="password" id="cur-pin" maxlength="8" inputmode="numeric" pattern="[0-9]*" placeholder="Masukkan PIN" required>
+      </label>
+      <div class="row" style="margin-top:4px">
+        <button type="button" class="btn ghost" id="btn-cancel-disable">Batal</button>
+        <button type="submit" class="btn red">Nonaktifkan</button>
+      </div>
+    </form>
+  </div>`;
+
+  d.showModal();
+
+  $('#btn-cancel-disable').onclick = () => d.close();
+
+  $('#disable-pin-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const curVal = $('#cur-pin').value.trim();
+    const curHash = await hashPin(curVal);
+    if (curHash !== sec.pinHash) {
+      const errBox = $('#disable-pin-err');
+      errBox.textContent = 'PIN yang kamu masukkan salah.';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    if (S.s) {
+      S.s._security = { pinEnabled: false, pinHash: null, hint: '' };
+    }
+    isUnlocked = true;
+    save();
+    d.close();
+    render();
+    toast('Kunci PIN berhasil dinonaktifkan');
+  };
+}
+
+function openForgotPinModal() {
+  const d = $('#dlg');
+  const sec = S.s?._security || {};
+  const hasHint = Boolean(sec.hint);
+
+  d.innerHTML = `
+  <div>
+    <h3>Pemulihan PIN Keamanan</h3>
+    <p class="mu" style="font-size:13px;margin:0 0 14px">
+      ${currentUser 
+        ? `Akunmu terhubung dengan Cloud (${esc(currentUser.email)}). Verifikasi kata sandi akun Cloud untuk mereset PIN.` 
+        : `Kamu menggunakan penyimpanan lokal. Lihat petunjuk PIN atau reset PIN jika diperlukan.`}
+    </p>
+
+    ${hasHint ? `
+      <div style="padding:12px;border-radius:10px;background:var(--card-sub);border:1px solid var(--bd);margin-bottom:14px">
+        <div style="font-size:12px;color:var(--mu);margin-bottom:2px">Petunjuk PIN yang pernah kamu buat:</div>
+        <div style="font-weight:600;color:var(--tx-bright);font-size:14px">${esc(sec.hint)}</div>
+      </div>
+    ` : ''}
+
+    <div id="forgot-err" style="display:none;padding:10px 12px;border-radius:10px;font-size:13px;background:rgba(248,113,113,.15);color:var(--red);margin-bottom:12px"></div>
+
+    ${currentUser ? `
+      <form id="forgot-cloud-form" style="display:grid;gap:12px">
+        <label>Kata Sandi Akun Cloud (${esc(currentUser.email)})
+          <input type="password" id="cloud-pwd" placeholder="Masukkan sandi akunmu" required>
+        </label>
+        <div class="row">
+          <button type="button" class="btn ghost" id="btn-cancel-forgot">Batal</button>
+          <button type="submit" class="btn">Verifikasi & Reset PIN</button>
+        </div>
+      </form>
+    ` : `
+      <div style="display:grid;gap:10px">
+        <p class="mu" style="font-size:12.5px;margin:0">
+          Jika kamu benar-benar lupa PIN pada mode offline, kamu dapat mereset PIN keamanan tanpa menghapus catatan tabunganmu.
+        </p>
+        <div class="row">
+          <button type="button" class="btn ghost" id="btn-cancel-forgot">Kembali</button>
+          <button type="button" class="btn red" id="btn-reset-pin-offline">Reset PIN Sekarang</button>
+        </div>
+      </div>
+    `}
+  </div>`;
+
+  d.showModal();
+
+  $('#btn-cancel-forgot').onclick = () => d.close();
+
+  if (currentUser) {
+    $('#forgot-cloud-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const pwd = $('#cloud-pwd').value;
+      const errBox = $('#forgot-err');
+      if (!pwd) return;
+
+      try {
+        const { error } = await sb.auth.signInWithPassword({
+          email: currentUser.email,
+          password: pwd
+        });
+        if (error) {
+          errBox.textContent = 'Kata sandi akun salah: ' + error.message;
+          errBox.style.display = 'block';
+          return;
+        }
+
+        if (S.s) S.s._security = { pinEnabled: false, pinHash: null, hint: '' };
+        isUnlocked = true;
+        save();
+        d.close();
+        render();
+        toast('PIN keamanan berhasil direset. Silakan pasang PIN baru jika diinginkan.');
+      } catch (err) {
+        errBox.textContent = 'Gagal memverifikasi akun: ' + err.message;
+        errBox.style.display = 'block';
+      }
+    };
+  } else {
+    $('#btn-reset-pin-offline').onclick = () => {
+      if (confirm('Konfirmasi: Reset PIN keamanan dan buka tabungan?')) {
+        if (S.s) S.s._security = { pinEnabled: false, pinHash: null, hint: '' };
+        isUnlocked = true;
+        save();
+        d.close();
+        render();
+        toast('PIN keamanan berhasil direset');
+      }
+    };
+  }
+}
+
 /* ---------- Pengaturan Awal & Pengaturan ---------- */
 function settingsForm(first) {
   const s = S.s || {};
@@ -625,6 +946,34 @@ function settingsForm(first) {
   </div>` : ''}</section>
   ${first ? '' : `
   <section class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div>
+        <h3 style="margin:0;display:flex;align-items:center;gap:8px">
+          ${ICONS.shield} Kunci Layar & Keamanan PIN
+        </h3>
+        <p class="mu" style="margin:4px 0 0;font-size:13px">
+          ${isPinActive() 
+            ? 'Keamanan PIN aktif. Aplikasi meminta PIN setiap kali dibuka untuk melindungi saldo dan privasi tabunganmu.' 
+            : 'Lindungi privasi saldo dan target tabunganmu dari orang lain saat membuka aplikasi ini.'}
+        </p>
+      </div>
+      <div>
+        <span class="badge ${isPinActive() ? 'ahead' : 'behind'}" style="font-size:12px">
+          ${isPinActive() ? 'Aktif' : 'Nonaktif'}
+        </span>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px;gap:10px;flex-wrap:wrap">
+      ${isPinActive() ? `
+        <button type="button" class="btn small" id="btn-change-pin">Ubah PIN</button>
+        <button type="button" class="btn ghost red small" id="btn-disable-pin">Nonaktifkan PIN</button>
+        <button type="button" class="btn ghost small" id="btn-test-lock">Kunci Layar Sekarang</button>
+      ` : `
+        <button type="button" class="btn small" id="btn-setup-pin">Pasang PIN Keamanan</button>
+      `}
+    </div>
+  </section>
+  <section class="card">
     <h3>Tampilan Tema</h3>
     <p class="mu" style="margin-bottom:12px">Pilih tema tampilan yang paling nyaman untuk matamu.</p>
     <button class="btn ghost" id="th2">Ganti ke ${S.theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}</button>
@@ -642,7 +991,8 @@ function settingsForm(first) {
       target: Math.max(1, Math.round(+f.get('target'))),
       routine: Math.max(1, Math.round(+f.get('routine'))),
       start: f.get('start'),
-      freq: f.get('freq')
+      freq: f.get('freq'),
+      _security: S.s?._security || null
     };
     if (S.s && calc().i - calc().o + n.initial < 0) {
       toast('Saldo awal membuat saldo total menjadi negatif');
@@ -663,6 +1013,14 @@ function settingsForm(first) {
   if ($('#btn-login-first')) $('#btn-login-first').onclick = () => openAuthModal('login');
   if ($('#th2')) $('#th2').onclick = toggleTheme;
   if ($('#imp0')) $('#imp0').onchange = e => importJSON(e.target.files[0]);
+  if ($('#btn-setup-pin')) $('#btn-setup-pin').onclick = () => openSetPinModal(false);
+  if ($('#btn-change-pin')) $('#btn-change-pin').onclick = () => openSetPinModal(true);
+  if ($('#btn-disable-pin')) $('#btn-disable-pin').onclick = () => openDisablePinModal();
+  if ($('#btn-test-lock')) $('#btn-test-lock').onclick = () => {
+    isUnlocked = false;
+    render();
+    toast('Layar tabungan dikunci');
+  };
 }
 
 V.setup = () => settingsForm(true);
@@ -1498,6 +1856,15 @@ $('#add').onclick = () => openTx();
 $('#mb').onclick = openSide;
 if ($('#sb-close')) $('#sb-close').onclick = closeSide;
 if ($('#side-overlay')) $('#side-overlay').onclick = closeSide;
+if ($('#btn-lock')) {
+  $('#btn-lock').onclick = () => {
+    if (isPinActive()) {
+      isUnlocked = false;
+      render();
+      toast('Layar tabungan dikunci');
+    }
+  };
+}
 window.addEventListener('hashchange', render);
 
 applyTheme();
