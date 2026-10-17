@@ -202,11 +202,12 @@ function scheduleAnalysis() {
   const diffBal = c.bal - expectedBal; // Positif: surplus, Negatif: defisit
   const diffPeriods = s.routine > 0 ? (diffBal / s.routine) : 0;
 
-  // Kecepatan menabung aktual riil sejak tanggal mulai
-  const effectiveDays = Math.max(1, daysElapsed);
+  // Kecepatan menabung aktual sejak tanggal mulai
   const netSavedActual = c.bal - s.initial;
-  const actualPerDay = netSavedActual / effectiveDays;
-  const actualPerUnit = actualPerDay * unitDays;
+  // Gunakan minimal 1 periode utuh agar tidak terjadi lonjakan ekstrem di hari-hari awal
+  const effectivePeriods = Math.max(1, periodsElapsed);
+  const actualPerUnit = netSavedActual > 0 ? (netSavedActual / effectivePeriods) : 0;
+  const actualPerDay = actualPerUnit / unitDays;
 
   // Estimasi berdasarkan target setoran rutin
   const estRoutine = est(c.bal, s.target, s.routine, s.freq);
@@ -1768,12 +1769,12 @@ V.prediksi = () => {
     ${st4('Sisa Nominal Target', rp(c.rem), `${c.pct.toFixed(1)}% telah terkumpul`, 'purple', ICONS.flag)}
     ${st4('Status Jadwal', `<span class="pill ${sa.badgeClass}">${sa.aheadText}</span>`, sa.diffBal >= 0 ? `Surplus ${rp(sa.diffBal)}` : `Kurang ${rp(Math.abs(sa.diffBal))}`, 'amber', ICONS.clock)}
     ${st4('Estimasi Rencana Rutin', estTxt(eRoutine, s.freq), 'Rutin: ' + rp(s.routine) + ' / ' + UNIT[s.freq], 'emerald', ICONS.target)}
-    ${st4('Estimasi Tempo Aktual', eActual ? (eActual.done ? 'Target tercapai' : `${fdo(eActual.d)} <small>(${eActual.n} ${UNIT[s.freq]} lagi)</small>`) : 'Perlu lebih banyak data', 'Laju riil: ' + rp(sa.actualPerUnit) + ' / ' + UNIT[s.freq], 'sky', ICONS.bolt)}
+    ${st4('Estimasi Tempo Aktual', eActual ? (eActual.done ? 'Target tercapai' : `${fdo(eActual.d)} <small>(${eActual.n} ${UNIT[s.freq]} lagi)</small>`) : 'Perlu lebih banyak data', 'Laju aktual: ' + rp(sa.actualPerUnit) + ' / ' + UNIT[s.freq], 'sky', ICONS.bolt)}
   </div>
 
   <section class="card">
     <h3>Perbandingan 2 Skenario Pencapaian</h3>
-    <p class="mu" style="font-size:13px;margin-bottom:14px">Lihat perbedaan tanggal target tercapai jika kamu menabung disiplin sesuai rencana vs laju riil tabunganmu saat ini.</p>
+    <p class="mu" style="font-size:13px;margin-bottom:14px">Lihat perbedaan tanggal target tercapai jika kamu menabung disiplin sesuai rencana vs laju aktual tabunganmu saat ini.</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:14px 0">
       <div style="background:var(--bg);border:1px solid var(--bd);padding:16px;border-radius:14px">
         <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:var(--ac2);margin-bottom:6px">
@@ -1787,7 +1788,7 @@ V.prediksi = () => {
       </div>
       <div style="background:var(--bg);border:1px solid var(--bd);padding:16px;border-radius:14px">
         <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:var(--amb);margin-bottom:6px">
-          Skenario B: Realistis Menurut Tempo Riil
+          Skenario B: Proyeksi Menurut Tempo Aktual
         </div>
         <p class="mu" style="font-size:13px">Dihitung dari rata-rata performa menabung bersih aktualmu (<b>${rp(sa.actualPerUnit)}</b> per <b>${UNIT[s.freq]}</b>).</p>
         <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--bd)">
@@ -1816,7 +1817,7 @@ V.prediksi = () => {
 
     chart('c_proj', ks.map(k => `${UNIT[s.freq]} ${k}`), [
       { N: 'Proyeksi Rencana Rutin', c: GR, D: routineSeries, area: 1 },
-      { N: 'Proyeksi Tempo Riil', c: AM, D: actualSeries, width: 2 },
+      { N: 'Proyeksi Tempo Aktual', c: AM, D: actualSeries, width: 2 },
       { N: 'Garis Target Tabungan', c: RD, D: ks.map(() => s.target), dash: '5 4' }
     ]);
   }
