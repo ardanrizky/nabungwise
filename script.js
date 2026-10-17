@@ -85,6 +85,26 @@ const opts = (o, sel) => Object.entries(o).map(([k, v]) => `<option value="${k}"
 const GR = '#10b981', RD = '#f87171', AM = '#fbbf24', BL = '#60a5fa';
 let tt; const toast = m => { const t = $('#toast'); if (!t) return; t.textContent = m; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2600); };
 
+/* ---------- Ikon SVG Profesional (Zero Emojis) ---------- */
+const ICONS = {
+  target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+  flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>',
+  milestone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>',
+  streak: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>',
+  in: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>',
+  out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>',
+  bolt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>',
+  bank: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v4M12 14v4M16 14v4"></path></svg>',
+  chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
+  wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M7 15h0M2 9.5h20"></path></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>',
+  sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>'
+};
+
 /* ---------- Perhitungan & Forecasting Dinamis ---------- */
 const sum = (t, l = S.tx) => l.filter(x => x.type === t).reduce((a, x) => a + x.amount, 0);
 
@@ -160,7 +180,7 @@ function scheduleAnalysis() {
   if (c.rem <= 0) {
     status = 'achieved';
     badgeClass = 'achieved';
-    aheadText = 'Target Tercapai 🎉';
+    aheadText = 'Target Tercapai';
   } else if (Math.abs(diffBal) < (s.routine * 0.15)) {
     status = 'on_track';
     badgeClass = 'ahead';
@@ -168,11 +188,11 @@ function scheduleAnalysis() {
   } else if (diffBal > 0) {
     status = 'ahead';
     badgeClass = 'ahead';
-    aheadText = `⚡ ${diffPeriods.toFixed(1)} ${UNIT[s.freq]} Lebih Cepat`;
+    aheadText = `${diffPeriods.toFixed(1)} ${UNIT[s.freq]} Lebih Cepat`;
   } else {
     status = 'behind';
     badgeClass = 'behind';
-    aheadText = `⚠️ ${Math.abs(diffPeriods).toFixed(1)} ${UNIT[s.freq]} Tertinggal`;
+    aheadText = `${Math.abs(diffPeriods).toFixed(1)} ${UNIT[s.freq]} Tertinggal`;
   }
 
   return {
@@ -253,47 +273,47 @@ function streak() {
 function insights() {
   const c = calc(), t = S.tx, a = [], ins = t.filter(x => x.type === 'in'), m = monthly(), st = streak(), sa = scheduleAnalysis();
   if (!t.length) return [
-    { icon: '✨', title: 'Mulai Menabung', text: 'Catat setoran pertamamu untuk mengaktifkan analisis dan prediksi otomatis.' }
+    { icon: ICONS.wallet, title: 'Mulai Menabung', text: 'Catat setoran pertamamu untuk mengaktifkan analisis dan prediksi otomatis.' }
   ];
 
   if (sa) {
     if (sa.status === 'ahead') {
-      a.push({ icon: '🚀', title: 'Performa Unggul', text: `Tabunganmu <b>surplus ${rp(sa.diffBal)}</b> (${sa.diffPeriods.toFixed(1)} ${UNIT[S.s.freq]} lebih cepat dari jadwal).` });
+      a.push({ icon: ICONS.bolt, title: 'Performa Unggul', text: `Tabunganmu <b>surplus ${rp(sa.diffBal)}</b> (${sa.diffPeriods.toFixed(1)} ${UNIT[S.s.freq]} lebih cepat dari jadwal).` });
     } else if (sa.status === 'behind') {
-      a.push({ icon: '⚡', title: 'Perlu Setoran Tambahan', text: `Tabungan tertinggal <b>${rp(Math.abs(sa.diffBal))}</b> dari jadwal. Tambah setoran ekstra untuk mengejar target.` });
+      a.push({ icon: ICONS.clock, title: 'Perlu Setoran Tambahan', text: `Tabungan tertinggal <b>${rp(Math.abs(sa.diffBal))}</b> dari jadwal. Tambah setoran ekstra untuk mengejar target.` });
     } else if (sa.status === 'achieved') {
-      a.push({ icon: '🎉', title: 'Target Tercapai!', text: `Luar biasa! Kamu telah mengumpulkan <b>${rp(c.bal)}</b> dan mencapai target tabungan.` });
+      a.push({ icon: ICONS.check, title: 'Target Tercapai', text: `Luar biasa! Kamu telah mengumpulkan <b>${rp(c.bal)}</b> dan mencapai target tabungan.` });
     } else {
-      a.push({ icon: '🎯', title: 'Tepat Sesuai Jadwal', text: `Perkembangan tabunganmu stabil dan sejalan dengan target rutin ${rp(S.s.routine)}/${UNIT[S.s.freq]}.` });
+      a.push({ icon: ICONS.target, title: 'Tepat Sesuai Jadwal', text: `Perkembangan tabunganmu stabil dan sejalan dengan target rutin ${rp(S.s.routine)}/${UNIT[S.s.freq]}.` });
     }
 
     if (sa.actualPerUnit > 0) {
-      a.push({ icon: '📊', title: 'Laju Bersih Aktual', text: `Kecepatan menabung bersih riilmu rata-rata <b>${rp(sa.actualPerUnit)} / ${UNIT[S.s.freq]}</b>.` });
+      a.push({ icon: ICONS.chart, title: 'Laju Bersih Aktual', text: `Kecepatan menabung bersih riilmu rata-rata <b>${rp(sa.actualPerUnit)} / ${UNIT[S.s.freq]}</b>.` });
     }
   }
 
   if (ins.length) {
-    a.push({ icon: '💰', title: 'Rata-rata Setoran', text: `Rata-rata nominal setoranmu adalah <b>${rp(c.i / ins.length)}</b> dari total ${ins.length} kali menabung.` });
+    a.push({ icon: ICONS.in, title: 'Rata-rata Setoran', text: `Rata-rata nominal setoranmu adalah <b>${rp(c.i / ins.length)}</b> dari total ${ins.length} kali menabung.` });
   }
 
   const n = new Date(), k = today().slice(0, 7), pk = iso(new Date(n.getFullYear(), n.getMonth() - 1, 1)).slice(0, 7);
   const cm = m.find(x => x.k === k), pm = m.find(x => x.k === pk);
   if (cm && pm && pm.i > 0) {
     const d = (cm.i - pm.i) / pm.i * 100;
-    a.push({ icon: d >= 0 ? '📈' : '📉', title: 'Tren Bulanan', text: `Setoran bulan ini <b>${d >= 0 ? 'naik' : 'turun'} ${Math.abs(d).toFixed(0)}%</b> dibanding bulan lalu.` });
+    a.push({ icon: d >= 0 ? ICONS.chart : ICONS.out, title: 'Tren Bulanan', text: `Setoran bulan ini <b>${d >= 0 ? 'naik' : 'turun'} ${Math.abs(d).toFixed(0)}%</b> dibanding bulan lalu.` });
   }
 
   if (c.i > 0) {
     const r = c.o / c.i * 100;
     if (r > 30) {
-      a.push({ icon: '🛡️', title: 'Perhatian Arus Kas', text: `Penarikan mencapai <b>${r.toFixed(0)}%</b> dari dana disetor. Kurangi penarikan agar target lekas tercapai.` });
+      a.push({ icon: ICONS.shield, title: 'Perhatian Arus Kas', text: `Penarikan mencapai <b>${r.toFixed(0)}%</b> dari dana disetor. Kurangi penarikan agar target lekas tercapai.` });
     } else {
-      a.push({ icon: '✅', title: 'Arus Kas Sehat', text: `Rasio penarikan sangat aman, hanya <b>${r.toFixed(0)}%</b> dari total dana yang kamu setorkan.` });
+      a.push({ icon: ICONS.check, title: 'Arus Kas Sehat', text: `Rasio penarikan sangat aman, hanya <b>${r.toFixed(0)}%</b> dari total dana yang kamu setorkan.` });
     }
   }
 
   if (st.cur > 0) {
-    a.push({ icon: '🔥', title: 'Saving Streak', text: `Disiplin menabung <b>${st.cur} minggu berturut-turut</b> (rekor terbaikmu: ${st.best} minggu)!` });
+    a.push({ icon: ICONS.streak, title: 'Saving Streak', text: `Disiplin menabung <b>${st.cur} minggu berturut-turut</b> (rekor terbaikmu: ${st.best} minggu).` });
   }
 
   return a;
@@ -463,7 +483,7 @@ function renderAuthUI() {
       $('#btn-logout').onclick = handleLogout;
     }
     if (hdrEl) {
-      hdrEl.innerHTML = `<button class="ib" id="btn-hdr-acc" title="${esc(currentUser.email)}">👤 Akun</button>`;
+      hdrEl.innerHTML = `<button class="ib" id="btn-hdr-acc" title="${esc(currentUser.email)}">${ICONS.user} <span>Akun</span></button>`;
       $('#btn-hdr-acc').onclick = openAccountModal;
     }
   } else {
@@ -595,7 +615,7 @@ function settingsForm(first) {
     <label>Target Setoran Rutin (Rp)<input name="routine" type="number" min="1" step="1" required placeholder="Contoh: 500000" value="${s.routine ?? ''}"></label>
     <label>Tanggal Mulai Menabung<input name="start" type="date" required value="${s.start ?? today()}"></label>
     <label>Frekuensi Menabung<select name="freq" required><option value="" disabled ${s.freq ? '' : 'selected'}>Pilih frekuensi</option>${opts(FREQ, s.freq || 'mingguan')}</select></label>
-    <div class="row" style="grid-column:1/-1"><button class="btn">${first ? 'Mulai Menabung Sekarang 🚀' : 'Simpan Perubahan'}</button></div>
+    <div class="row" style="grid-column:1/-1"><button class="btn">${first ? 'Mulai Menabung Sekarang' : 'Simpan Perubahan'}</button></div>
   </form>
   ${first ? `<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px" class="mu">
     <span>Sudah punya cadangan data?</span>
@@ -607,7 +627,7 @@ function settingsForm(first) {
   <section class="card">
     <h3>Tampilan Tema</h3>
     <p class="mu" style="margin-bottom:12px">Pilih tema tampilan yang paling nyaman untuk matamu.</p>
-    <button class="btn ghost" id="th2">Ganti ke ${S.theme === 'dark' ? 'Mode Terang ☀️' : 'Mode Gelap 🌙'}</button>
+    <button class="btn ghost" id="th2">Ganti ke ${S.theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}</button>
   </section>
   <section class="card">
     <h3>Riwayat Perubahan Saldo Awal</h3>
@@ -662,7 +682,7 @@ V.dashboard = () => {
   let milestoneSnippet = 'Belum ada milestone';
   if (nm) {
     if (nm.allDone) {
-      milestoneSnippet = `Semua milestone tercapai 🎉`;
+      milestoneSnippet = 'Semua milestone tercapai';
     } else {
       milestoneSnippet = `${esc(nm.milestone.name)}: ${rp(nm.milestone.amount)} · Kurang ${rp(nm.rem)}`;
     }
@@ -686,11 +706,11 @@ V.dashboard = () => {
       </div>
     </div>
 
-    ${st4('Target Tabungan', rp(s.target), 'Rutin ' + rp(s.routine) + ' / ' + UNIT[s.freq], 'sky', '🎯')}
-    ${st4('Status Jadwal', `<span class="pill ${sa.badgeClass}">${sa.aheadText}</span>`, sa.diffBal >= 0 ? `Surplus ${rp(sa.diffBal)} dari target` : `Kurang ${rp(Math.abs(sa.diffBal))} dari target`, 'amber', '⏱️')}
-    ${st4('Sisa Menuju Target', rp(c.rem), c.rem ? `${(100 - c.pct).toFixed(1)}% lagi untuk dicapai` : 'Target Tercapai 🎉', 'purple', '🏁')}
-    ${st4('Milestone Terdekat', nm && !nm.allDone ? esc(nm.milestone.name) : 'Semua Tercapai', milestoneSnippet, 'emerald', '🚩')}
-    ${st4('Saving Streak', st.cur + ' Minggu Beruntun', 'Rekor terbaik: ' + st.best + ' minggu', 'rose', '🔥')}
+    ${st4('Target Tabungan', rp(s.target), 'Rutin ' + rp(s.routine) + ' / ' + UNIT[s.freq], 'sky', ICONS.target)}
+    ${st4('Status Jadwal', `<span class="pill ${sa.badgeClass}">${sa.aheadText}</span>`, sa.diffBal >= 0 ? `Surplus ${rp(sa.diffBal)} dari target` : `Kurang ${rp(Math.abs(sa.diffBal))} dari target`, 'amber', ICONS.clock)}
+    ${st4('Sisa Menuju Target', rp(c.rem), c.rem ? `${(100 - c.pct).toFixed(1)}% lagi untuk dicapai` : 'Target Tercapai', 'purple', ICONS.flag)}
+    ${st4('Milestone Terdekat', nm && !nm.allDone ? esc(nm.milestone.name) : 'Semua Tercapai', milestoneSnippet, 'emerald', ICONS.milestone)}
+    ${st4('Saving Streak', st.cur + ' Minggu Beruntun', 'Rekor terbaik: ' + st.best + ' minggu', 'rose', ICONS.streak)}
   </div>
 
   <section class="card">
@@ -873,11 +893,11 @@ V.analytics = () => {
 
   $('#view').innerHTML = `
   <div class="stats">
-    ${st4('Rata-rata Setoran', rp(ins.length ? c.i / ins.length : 0), ins.length + ' kali setoran', 'emerald', '📥')}
-    ${st4('Laju Tabungan Bersih', rp(sa.actualPerUnit), 'rata-rata per ' + UNIT[s.freq], 'sky', '⚡')}
-    ${st4('Total Dana Disetor', rp(c.i), 'Semua setoran masuk', 'emerald', '💰')}
-    ${st4('Total Penarikan', rp(c.o), `${savingRate.toFixed(1)}% rasio simpanan bersih`, 'rose', '📤')}
-    ${st4('Setoran Terbesar', rp(mx), 'Paling banyak disetor', 'purple', '🏆')}
+    ${st4('Rata-rata Setoran', rp(ins.length ? c.i / ins.length : 0), ins.length + ' kali setoran', 'emerald', ICONS.in)}
+    ${st4('Laju Tabungan Bersih', rp(sa.actualPerUnit), 'rata-rata per ' + UNIT[s.freq], 'sky', ICONS.bolt)}
+    ${st4('Total Dana Disetor', rp(c.i), 'Semua setoran masuk', 'emerald', ICONS.wallet)}
+    ${st4('Total Penarikan', rp(c.o), `${savingRate.toFixed(1)}% rasio simpanan bersih`, 'rose', ICONS.out)}
+    ${st4('Setoran Terbesar', rp(mx), 'Paling banyak disetor', 'purple', ICONS.chart)}
   </div>
 
   <div class="g2">
@@ -969,14 +989,14 @@ V.target = () => {
         const p = Math.min(100, Math.max(0, c.bal / m.amount * 100));
         return `<div class="milestone-item">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-            <b>${p >= 100 ? '✅ [Tercapai]' : '🎯'} ${esc(m.name)}</b>
+            <b>${p >= 100 ? '[Tercapai]' : '[Target]'} ${esc(m.name)}</b>
             <div style="display:flex;align-items:center;gap:10px">
               <b>${rp(m.amount)}</b>
               <button class="ib" data-a="delms" data-id="${m.id}" title="Hapus">Hapus</button>
             </div>
           </div>
           ${bar(p)}
-          <small class="mu">${p >= 100 ? 'Milestone ini sudah berhasil kamu capai! 🎉' : `Kurang ${rp(m.amount - c.bal)} lagi (${p.toFixed(1)}% terkumpul)`}</small>
+          <small class="mu">${p >= 100 ? 'Milestone ini sudah berhasil kamu capai' : `Kurang ${rp(m.amount - c.bal)} lagi (${p.toFixed(1)}% terkumpul)`}</small>
         </div>`;
       }).join('') : '<p class="mu empty">Belum ada milestone. Tambahkan milestone pertamamu di atas!</p>'}
     </div>
@@ -1012,10 +1032,10 @@ V.prediksi = () => {
 
   $('#view').innerHTML = `
   <div class="stats">
-    ${st4('Sisa Nominal Target', rp(c.rem), `${c.pct.toFixed(1)}% telah terkumpul`, 'purple', '🏁')}
-    ${st4('Status Jadwal', `<span class="pill ${sa.badgeClass}">${sa.aheadText}</span>`, sa.diffBal >= 0 ? `Surplus ${rp(sa.diffBal)}` : `Kurang ${rp(Math.abs(sa.diffBal))}`, 'amber', '⏱️')}
-    ${st4('Estimasi Rencana Rutin', estTxt(eRoutine, s.freq), 'Rutin: ' + rp(s.routine) + ' / ' + UNIT[s.freq], 'emerald', '🎯')}
-    ${st4('Estimasi Tempo Aktual', eActual ? (eActual.done ? 'Target tercapai 🎉' : `${fdo(eActual.d)} <small>(${eActual.n} ${UNIT[s.freq]} lagi)</small>`) : 'Perlu lebih banyak data', 'Laju riil: ' + rp(sa.actualPerUnit) + ' / ' + UNIT[s.freq], 'sky', '⚡')}
+    ${st4('Sisa Nominal Target', rp(c.rem), `${c.pct.toFixed(1)}% telah terkumpul`, 'purple', ICONS.flag)}
+    ${st4('Status Jadwal', `<span class="pill ${sa.badgeClass}">${sa.aheadText}</span>`, sa.diffBal >= 0 ? `Surplus ${rp(sa.diffBal)}` : `Kurang ${rp(Math.abs(sa.diffBal))}`, 'amber', ICONS.clock)}
+    ${st4('Estimasi Rencana Rutin', estTxt(eRoutine, s.freq), 'Rutin: ' + rp(s.routine) + ' / ' + UNIT[s.freq], 'emerald', ICONS.target)}
+    ${st4('Estimasi Tempo Aktual', eActual ? (eActual.done ? 'Target tercapai' : `${fdo(eActual.d)} <small>(${eActual.n} ${UNIT[s.freq]} lagi)</small>`) : 'Perlu lebih banyak data', 'Laju riil: ' + rp(sa.actualPerUnit) + ' / ' + UNIT[s.freq], 'sky', ICONS.bolt)}
   </div>
 
   <section class="card">
@@ -1024,21 +1044,21 @@ V.prediksi = () => {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:14px 0">
       <div style="background:var(--bg);border:1px solid var(--bd);padding:16px;border-radius:14px">
         <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:var(--ac2);margin-bottom:6px">
-          🎯 Skenario A: Disiplin Sesuai Rencana
+          Skenario A: Sesuai Rencana Rutin
         </div>
         <p class="mu" style="font-size:13px">Jika kamu konsisten menyetor rutin <b>${rp(s.routine)}</b> per <b>${UNIT[s.freq]}</b> mulai hari ini tanpa putus.</p>
         <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--bd)">
-          <div style="font-size:13px">Estimasi Tanggal: <b style="color:var(--tx-bright)">${eRoutine ? (eRoutine.done ? 'Tercapai 🎉' : fdo(eRoutine.d)) : '-'}</b></div>
+          <div style="font-size:13px">Estimasi Tanggal: <b style="color:var(--tx-bright)">${eRoutine ? (eRoutine.done ? 'Tercapai' : fdo(eRoutine.d)) : '-'}</b></div>
           <div class="mu" style="font-size:12.5px;margin-top:2px">Sisa waktu: <b>${eRoutine ? (eRoutine.done ? '0' : eRoutine.n) : '-'} ${UNIT[s.freq]} lagi</b></div>
         </div>
       </div>
       <div style="background:var(--bg);border:1px solid var(--bd);padding:16px;border-radius:14px">
         <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:var(--amb);margin-bottom:6px">
-          ⚡ Skenario B: Realistis Menurut Tempo Riil
+          Skenario B: Realistis Menurut Tempo Riil
         </div>
         <p class="mu" style="font-size:13px">Dihitung dari rata-rata performa menabung bersih aktualmu (<b>${rp(sa.actualPerUnit)}</b> per <b>${UNIT[s.freq]}</b>).</p>
         <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--bd)">
-          <div style="font-size:13px">Estimasi Tanggal: <b style="color:var(--tx-bright)">${eActual ? (eActual.done ? 'Tercapai 🎉' : fdo(eActual.d)) : 'Belum cukup data'}</b></div>
+          <div style="font-size:13px">Estimasi Tanggal: <b style="color:var(--tx-bright)">${eActual ? (eActual.done ? 'Tercapai' : fdo(eActual.d)) : 'Belum cukup data'}</b></div>
           <div class="mu" style="font-size:12.5px;margin-top:2px">Sisa waktu: <b>${eActual ? (eActual.done ? '0' : eActual.n) : '-'} ${UNIT[s.freq]} lagi</b></div>
         </div>
       </div>
@@ -1333,14 +1353,14 @@ V.laporan = () => {
   <section class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
       <h2>Laporan Keuangan & Tabungan</h2>
-      <button class="btn noprint" onclick="window.print()">🖨️ Cetak / Ekspor PDF</button>
+      <button class="btn noprint" onclick="window.print()">Cetak / Ekspor PDF</button>
     </div>
     <p class="mu" style="margin-bottom:14px">Dihasilkan pada: ${fdo(new Date())} · Dimulai sejak: ${fd(s.start)}</p>
     <div class="stats">
-      ${st4('Saldo Awal', rp(s.initial), 'Ditetapkan pada ' + fd(s.start), 'sky', '🏦')}
-      ${st4('Total Setoran', rp(c.i), 'Dari ' + S.tx.filter(x => x.type === 'in').length + ' kali setor', 'emerald', '💰')}
-      ${st4('Total Penarikan', rp(c.o), 'Dari ' + S.tx.filter(x => x.type === 'out').length + ' kali tarik', 'rose', '📤')}
-      ${st4('Saldo Terkini', rp(c.bal), c.pct.toFixed(1) + '% dari target ' + rp(s.target), 'purple', '🏁')}
+      ${st4('Saldo Awal', rp(s.initial), 'Ditetapkan pada ' + fd(s.start), 'sky', ICONS.bank)}
+      ${st4('Total Setoran', rp(c.i), 'Dari ' + S.tx.filter(x => x.type === 'in').length + ' kali setor', 'emerald', ICONS.in)}
+      ${st4('Total Penarikan', rp(c.o), 'Dari ' + S.tx.filter(x => x.type === 'out').length + ' kali tarik', 'rose', ICONS.out)}
+      ${st4('Saldo Terkini', rp(c.bal), c.pct.toFixed(1) + '% dari target ' + rp(s.target), 'purple', ICONS.flag)}
     </div>
   </section>
 
@@ -1414,12 +1434,12 @@ V.backup = () => {
     <h2>Cadangan & Pemulihan Data</h2>
     <p class="mu" style="margin-bottom:16px">Simpan salinan data tabunganmu ke file JSON atau pulihkan data kapan saja tanpa khawatir hilang.</p>
     <div class="row wrap">
-      <button class="btn" id="bj">📥 Unduh Backup JSON</button>
+      <button class="btn" id="bj">Unduh Backup JSON</button>
       <label class="btn ghost" style="cursor:pointer;color:var(--tx);display:inline-flex;align-items:center">
-        📂 Impor & Pulihkan JSON
+        Impor & Pulihkan JSON
         <input type="file" id="ij" accept=".json" hidden>
       </label>
-      <button class="btn ghost" id="bc">📊 Ekspor Transaksi (CSV)</button>
+      <button class="btn ghost" id="bc">Ekspor Transaksi (CSV)</button>
     </div>
   </section>
 
@@ -1453,7 +1473,7 @@ function applyTheme() {
   const th = $('#th');
   if (th) {
     const isDark = S.theme === 'dark';
-    th.innerHTML = `<span class="theme-icon">${isDark ? '🌙' : '☀️'}</span> <span class="theme-label">${isDark ? 'Mode Gelap' : 'Mode Terang'}</span>`;
+    th.innerHTML = `<span class="theme-icon">${isDark ? ICONS.moon : ICONS.sun}</span> <span class="theme-label">${isDark ? 'Mode Gelap' : 'Mode Terang'}</span>`;
   }
 }
 
