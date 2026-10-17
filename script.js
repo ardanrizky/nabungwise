@@ -16,6 +16,9 @@ let S = (() => {
 
 let isUnlocked = false;
 let isBalanceHidden = Boolean(S.hideBalance);
+let balRange = 'all';
+let analyticsPeriod = 'all';
+let c2Filter = 'all';
 const isPinActive = () => Boolean(S?.s?._security?.pinEnabled && S?.s?._security?.pinHash);
 
 async function hashPin(pin) {
@@ -283,17 +286,84 @@ function monthly() {
 const mlabel = k => MN[+k.slice(5) - 1].slice(0, 3) + ' ' + k.slice(2, 4);
 const mlong = k => MN[+k.slice(5) - 1] + ' ' + k.slice(0, 4);
 
-function balSeries() {
-  const t = [...S.tx].sort((a, b) => a.date.localeCompare(b.date));
-  const first = [S.s.start, ...t.map(x => x.date)].sort()[0];
-  let r = S.s.initial;
-  const L = [first], D = [r];
-  t.forEach(x => {
-    r += x.type === 'in' ? x.amount : -x.amount;
-    if (L[L.length - 1] === x.date) D[D.length - 1] = r;
-    else { L.push(x.date); D.push(r); }
+function balSeries(range = 'all') {
+  if (!S.s) return { L: [], D: [] };
+  const allTx = [...S.tx].sort((a, b) => a.date.localeCompare(b.date) || (a.ts || 0) - (b.ts || 0));
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+
+  let startDateStr = S.s.start || today();
+  if (range === '1m') {
+    const d = new Date(now); d.setDate(d.getDate() - 30);
+    startDateStr = iso(d);
+  } else if (range === '3m') {
+    const d = new Date(now); d.setDate(d.getDate() - 90);
+    startDateStr = iso(d);
+  } else if (range === '6m') {
+    const d = new Date(now); d.setDate(d.getDate() - 180);
+    startDateStr = iso(d);
+  } else if (range === '1y') {
+    const d = new Date(now); d.setFullYear(d.getFullYear() - 1);
+    startDateStr = iso(d);
+  } else {
+    if (allTx.length && allTx[0].date < startDateStr) {
+      startDateStr = allTx[0].date;
+    }
+  }
+
+  let startBal = S.s.initial;
+  allTx.forEach(x => {
+    if (x.date < startDateStr) {
+      startBal += x.type === 'in' ? x.amount : -x.amount;
+    }
   });
-  return { L: L.map(fd), D };
+
+  const rangeTx = allTx.filter(x => x.date >= startDateStr);
+  const dates = [startDateStr];
+  const balances = [startBal];
+  let curBal = startBal;
+
+  rangeTx.forEach(x => {
+    curBal += x.type === 'in' ? x.amount : -x.amount;
+    if (dates[dates.length - 1] === x.date) {
+      balances[balances.length - 1] = curBal;
+    } else {
+      dates.push(x.date);
+      balances.push(curBal);
+    }
+  });
+
+  const td = today();
+  if (dates[dates.length - 1] !== td) {
+    dates.push(td);
+    balances.push(curBal);
+  }
+
+  // Downsample jika titik data terlalu banyak agar kurva tetap bersih dan tidak bertumpuk
+  if (dates.length > 35) {
+    const step = Math.ceil(dates.length / 30);
+    const sampledDates = [];
+    const sampledBalances = [];
+    for (let i = 0; i < dates.length; i += step) {
+      sampledDates.push(dates[i]);
+      sampledBalances.push(balances[i]);
+    }
+    if (sampledDates[sampledDates.length - 1] !== dates[dates.length - 1]) {
+      sampledDates.push(dates[dates.length - 1]);
+      sampledBalances.push(balances[balances.length - 1]);
+    }
+    return {
+      L: sampledDates.map(fd),
+      rawDates: sampledDates,
+      D: sampledBalances
+    };
+  }
+
+  return {
+    L: dates.map(fd),
+    rawDates: dates,
+    D: balances
+  };
 }
 
 const wk = s => {
@@ -335,7 +405,7 @@ function insights() {
     }
 
     if (sa.actualPerUnit > 0) {
-      a.push({ icon: ICONS.chart, title: 'Laju Bersih Aktual', text: `Kecepatan menabung bersih riilmu rata-rata <b>${rp(sa.actualPerUnit)} / ${UNIT[S.s.freq]}</b>.` });
+      a.push({ icon: ICONS.chart, title: 'Laju Bersih Aktual', text: `Kecepatan menabung bersihmu rata-rata <b>${rp(sa.actualPerUnit)} / ${UNIT[S.s.freq]}</b>.` });
     }
   }
 
@@ -386,7 +456,7 @@ const insCard = () => `
 </section>`;
 
 /* ---------- Grafik SVG Interaktif ---------- */
-function chart(id, L, series, bar) {
+function chart(id, L, series, bar, options = {}) {
   const el = $('#' + id);
   if (!el) return;
   if (!L || !L.length) {
@@ -404,47 +474,113 @@ function chart(id, L, series, bar) {
   };
 
   let g = '';
+  // Garis grid horizontal & label sumbu Y
   for (let k = 0; k <= 4; k++) {
     const v = mn + (mx - mn) * k / 4, y = Y(v);
     g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y}" y2="${y}" class="gl"/><text x="${P.l - 8}" y="${y + 4}" text-anchor="end" class="ax">${sh(v)}</text>`;
   }
 
-  const step = Math.max(1, Math.ceil(n / 6));
+  // Garis batas nol jika ada nilai negatif
+  if (mn < 0 && mx > 0) {
+    const y0 = Y(0);
+    g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y0}" y2="${y0}" stroke="var(--bd)" stroke-width="1.5"/>`;
+  }
+
+  // Label sumbu X dinamis (tidak saling bertumpukan)
+  const maxLabels = Math.min(6, n);
+  const step = Math.max(1, Math.ceil(n / maxLabels));
   L.forEach((l, i) => {
-    if (i % step === 0 || i === n - 1) g += `<text x="${X(i)}" y="${H - 8}" text-anchor="middle" class="ax">${l}</text>`;
+    if (i % step === 0 || i === n - 1) {
+      g += `<text x="${X(i)}" y="${H - 8}" text-anchor="middle" class="ax">${l}</text>`;
+    }
   });
 
+  // Gambar series grafik
   series.forEach((s, j) => {
     if (bar) {
       const bw = iw / n / (series.length + 0.6);
       s.D.forEach((v, i) => {
         const y = Y(v), y0 = Y(0);
-        g += `<rect x="${X(i) - bw * series.length / 2 + j * bw}" y="${Math.min(y, y0)}" width="${Math.max(2, bw * .85)}" height="${Math.abs(y0 - y)}" rx="3" fill="${s.c}"/>`;
+        g += `<rect class="chart-bar" data-series="${j}" data-idx="${i}" x="${X(i) - bw * series.length / 2 + j * bw}" y="${Math.min(y, y0)}" width="${Math.max(3, bw * .85)}" height="${Math.max(2, Math.abs(y0 - y))}" rx="3" fill="${s.c}"/>`;
       });
     } else {
       const pts = s.D.map((v, i) => `${X(i)},${Y(v)}`);
-      g += `<path d="M${pts.join('L')}" fill="none" stroke="${s.c}" stroke-width="${s.width || 2.5}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''}/>`;
+      g += `<path d="M${pts.join('L')}" fill="none" stroke="${s.c}" stroke-width="${s.width || 2.8}" ${s.dash ? `stroke-dasharray="${s.dash}"` : ''} stroke-linejoin="round" stroke-linecap="round"/>`;
       if (s.area && n > 1) {
-        g += `<path d="M${X(0)},${Y(mn)}L${pts.join('L')}L${X(n - 1)},${Y(mn)}Z" fill="${s.c}" opacity=".12"/>`;
+        g += `<path d="M${X(0)},${Y(mn)}L${pts.join('L')}L${X(n - 1)},${Y(mn)}Z" fill="${s.c}" opacity=".14"/>`;
       }
-      if (!s.dash && n <= 45) {
-        s.D.forEach((v, i) => g += `<circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="${s.c}"/>`);
+      if (!s.dash && n <= 30) {
+        s.D.forEach((v, i) => g += `<circle cx="${X(i)}" cy="${Y(v)}" r="3.5" fill="${s.c}" stroke="var(--bg)" stroke-width="1.5"/>`);
       }
     }
   });
 
+  // Elemen garis pemandu & titik aktif interaktif
+  g += `<line id="${id}-guide" class="chart-guide" x1="0" x2="0" y1="${P.t}" y2="${H - P.b}" style="display:none"/>`;
+  if (!bar) {
+    series.forEach((s, j) => {
+      if (!s.dash) {
+        g += `<circle id="${id}-dot-${j}" class="chart-glow-dot" r="5" style="display:none;fill:${s.c}"/>`;
+      }
+    });
+  }
+
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}</svg><div class="tip"></div><div class="lg">${series.map(s => `<span><i style="background:${s.c}"></i>${s.N}</span>`).join('')}</div>`;
 
   const tip = el.querySelector('.tip'), svg = el.querySelector('svg');
+  const guide = el.querySelector(`#${id}-guide`);
+
   svg.onpointermove = e => {
     const r = svg.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W;
     let i = n === 1 ? 0 : bar ? Math.floor((x - P.l) / iw * n) : Math.round((x - P.l) / iw * (n - 1));
     i = Math.max(0, Math.min(n - 1, i));
+
+    const cx = X(i);
+    if (guide) {
+      guide.setAttribute('x1', cx);
+      guide.setAttribute('x2', cx);
+      guide.style.display = 'block';
+    }
+
+    if (!bar) {
+      series.forEach((s, j) => {
+        const dot = el.querySelector(`#${id}-dot-${j}`);
+        if (dot && s.D[i] !== undefined) {
+          dot.setAttribute('cx', cx);
+          dot.setAttribute('cy', Y(s.D[i]));
+          dot.style.display = 'block';
+        }
+      });
+    }
+
     tip.style.display = 'block';
-    tip.style.left = Math.min(Math.max(6, X(i) / W * r.width - 70), Math.max(6, r.width - 160)) + 'px';
-    tip.innerHTML = `<b>${L[i]}</b>` + series.map(s => `<div><i style="background:${s.c}"></i>${s.N}: ${rp(s.D[i])}</div>`).join('');
+    const tipLeft = Math.min(Math.max(6, cx / W * r.width - 70), Math.max(6, r.width - 180));
+    tip.style.left = tipLeft + 'px';
+
+    if (options.customTip) {
+      tip.innerHTML = options.customTip(i, L[i], series);
+    } else {
+      let content = `<b style="display:block;margin-bottom:4px;color:var(--tx-bright)">${L[i]}</b>`;
+      series.forEach(s => {
+        content += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;margin-top:2px">
+          <span><i style="background:${s.c}"></i>${s.N}:</span>
+          <b>${rp(s.D[i])}</b>
+        </div>`;
+      });
+      tip.innerHTML = content;
+    }
   };
-  svg.onpointerleave = () => tip.style.display = 'none';
+
+  svg.onpointerleave = () => {
+    tip.style.display = 'none';
+    if (guide) guide.style.display = 'none';
+    if (!bar) {
+      series.forEach((_, j) => {
+        const dot = el.querySelector(`#${id}-dot-${j}`);
+        if (dot) dot.style.display = 'none';
+      });
+    }
+  };
 }
 
 function projChart(id, b, t, r, f) {
@@ -1118,10 +1254,19 @@ V.dashboard = () => {
 
   <div class="g2">
     <section class="card">
-      <h3>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ac2)"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>
-        Grafik Pertumbuhan Saldo Riil
-      </h3>
+      <div class="chart-header">
+        <h3 style="margin:0;display:flex;align-items:center;gap:8px">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ac2)"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>
+          Grafik Pertumbuhan Saldo
+        </h3>
+        <div class="range-pills" id="bal-range-pills">
+          <button type="button" class="range-pill ${balRange === '1m' ? 'active' : ''}" data-range="1m">1 Bln</button>
+          <button type="button" class="range-pill ${balRange === '3m' ? 'active' : ''}" data-range="3m">3 Bln</button>
+          <button type="button" class="range-pill ${balRange === '6m' ? 'active' : ''}" data-range="6m">6 Bln</button>
+          <button type="button" class="range-pill ${balRange === '1y' ? 'active' : ''}" data-range="1y">1 Thn</button>
+          <button type="button" class="range-pill ${balRange === 'all' ? 'active' : ''}" data-range="all">Semua</button>
+        </div>
+      </div>
       <div class="ch" id="c1"></div>
     </section>
     ${insCard()}
@@ -1139,8 +1284,15 @@ V.dashboard = () => {
   </section>`;
 
   if ($('#hero-eye-toggle')) $('#hero-eye-toggle').onclick = toggleBalancePrivacy;
-  const b = balSeries();
+  const b = balSeries(balRange);
   chart('c1', b.L, [{ N: 'Saldo Tabungan', c: GR, D: b.D, area: 1 }]);
+
+  document.querySelectorAll('#bal-range-pills .range-pill').forEach(btn => {
+    btn.onclick = () => {
+      balRange = btn.dataset.range;
+      render();
+    };
+  });
 };
 
 /* ---------- Transaksi Modal ---------- */
@@ -1298,37 +1450,128 @@ V.riwayat = () => {
 
 /* ---------- Analytics ---------- */
 V.analytics = () => {
-  const c = calc(), s = S.s, ins = S.tx.filter(x => x.type === 'in'), m = monthly();
-  const mx = ins.length ? Math.max(...ins.map(x => x.amount)) : 0;
+  const c = calc(), s = S.s;
+  const allMonths = monthly();
+  const monthKeys = allMonths.map(x => x.k).reverse();
+  const allYears = [...new Set(allMonths.map(x => x.k.slice(0, 4)))].sort().reverse();
+
+  const isAll = analyticsPeriod === 'all';
+  const filteredTx = isAll ? S.tx : S.tx.filter(x => x.date.startsWith(analyticsPeriod));
+
+  const mIn = sum('in', filteredTx);
+  const mOut = sum('out', filteredTx);
+  const mNet = mIn - mOut;
+  const mCount = filteredTx.length;
+  const mInsCount = filteredTx.filter(x => x.type === 'in').length;
+  const mSavingRate = mIn > 0 ? (mNet / mIn * 100) : 0;
+  const mAvgIn = mInsCount > 0 ? (mIn / mInsCount) : 0;
+  const mMx = mInsCount > 0 ? Math.max(...filteredTx.filter(x => x.type === 'in').map(x => x.amount)) : 0;
+
+  const insAll = S.tx.filter(x => x.type === 'in');
+  const insCountAll = insAll.length;
+  const mxAll = insCountAll ? Math.max(...insAll.map(x => x.amount)) : 0;
+
   const sa = scheduleAnalysis();
-  const netSaved = c.i - c.o;
-  const savingRate = c.i > 0 ? (netSaved / c.i * 100) : 0;
 
   // Kumulatif target rencana vs realisasi aktual
-  const bSeries = balSeries();
+  const bSeries = balSeries('all');
   const L = bSeries.L;
   const actualData = bSeries.D;
   const plannedData = L.map((_, idx) => s.initial + (idx * s.routine));
 
+  // Filter bulanan untuk grafik Setoran vs Penarikan
+  let displayM = [...allMonths];
+  if (c2Filter === '6m') displayM = displayM.slice(-6);
+  else if (c2Filter === '12m') displayM = displayM.slice(-12);
+  else if (c2Filter !== 'all') displayM = displayM.filter(x => x.k.startsWith(c2Filter));
+
+  // Kategori transaksi untuk periode terpilih
+  const catSummary = {};
+  filteredTx.forEach(x => {
+    const k = x.type + '|' + x.cat;
+    catSummary[k] = (catSummary[k] || 0) + x.amount;
+  });
+
+  const catRows = t => {
+    const entries = Object.entries(catSummary).filter(([k]) => k.startsWith(t)).sort((a, b) => b[1] - a[1]);
+    if (!entries.length) return '<tr><td class="mu" style="font-size:12.5px">Belum ada transaksi</td><td class="r">-</td></tr>';
+    return entries.map(([k, v]) => `<tr><td>${k.split('|')[1]}</td><td class="r ${t}">${t === 'in' ? '+' : '-'}${rp(v)}</td></tr>`).join('');
+  };
+
   $('#view').innerHTML = `
+  <section class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div>
+      <h2 style="margin:0 0 4px">Analisis & Arus Kas</h2>
+      <p class="mu" style="margin:0;font-size:13px">
+        ${isAll 
+          ? 'Menganalisis arus kas kumulatif secara menyeluruh dari seluruh riwayat tabungan.' 
+          : `Menampilkan rincian arus kas khusus periode <b>${mlong(analyticsPeriod)}</b>.`}
+      </p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;margin:0" class="mu">
+        Pilih Periode:
+        <select id="analytics-month-sel" class="cal-select" style="min-width:190px">
+          <option value="all" ${analyticsPeriod === 'all' ? 'selected' : ''}>Semua Periode (Keseluruhan)</option>
+          ${monthKeys.map(k => `<option value="${k}" ${analyticsPeriod === k ? 'selected' : ''}>${mlong(k)}</option>`).join('')}
+        </select>
+      </label>
+    </div>
+  </section>
+
   <div class="stats">
-    ${st4('Rata-rata Setoran', rp(ins.length ? c.i / ins.length : 0), ins.length + ' kali setoran', 'emerald', ICONS.in)}
-    ${st4('Laju Tabungan Bersih', rp(sa.actualPerUnit), 'rata-rata per ' + UNIT[s.freq], 'sky', ICONS.bolt)}
-    ${st4('Total Dana Disetor', rp(c.i), 'Semua setoran masuk', 'emerald', ICONS.wallet)}
-    ${st4('Total Penarikan', rp(c.o), `${savingRate.toFixed(1)}% rasio simpanan bersih`, 'rose', ICONS.out)}
-    ${st4('Setoran Terbesar', rp(mx), 'Paling banyak disetor', 'purple', ICONS.chart)}
+    ${isAll ? `
+      ${st4('Rata-rata Setoran', rp(insCountAll ? c.i / insCountAll : 0), insCountAll + ' kali setoran', 'emerald', ICONS.in)}
+      ${st4('Laju Tabungan Bersih', rp(sa.actualPerUnit), 'rata-rata per ' + UNIT[s.freq], 'sky', ICONS.bolt)}
+      ${st4('Total Dana Disetor', rp(c.i), 'Semua setoran masuk', 'emerald', ICONS.wallet)}
+      ${st4('Total Penarikan', rp(c.o), `${(c.i > 0 ? (c.i - c.o) / c.i * 100 : 0).toFixed(1)}% rasio simpanan bersih`, 'rose', ICONS.out)}
+      ${st4('Setoran Terbesar', rp(mxAll), 'Paling banyak disetor', 'purple', ICONS.chart)}
+    ` : `
+      ${st4('Setoran Bulan Ini', rp(mIn), mInsCount + ' kali setoran masuk', 'emerald', ICONS.in)}
+      ${st4('Penarikan Bulan Ini', rp(mOut), (mCount - mInsCount) + ' kali penarikan', 'rose', ICONS.out)}
+      ${st4('Tabungan Bersih', rp(mNet), mNet >= 0 ? 'Surplus bulan ini' : 'Defisit bulan ini', mNet >= 0 ? 'emerald' : 'rose', ICONS.wallet)}
+      ${st4('Rasio Simpanan', `${mSavingRate.toFixed(1)}%`, mIn > 0 ? 'Dari dana masuk tersimpan' : 'Belum ada setoran', 'sky', ICONS.target)}
+      ${st4('Rata-rata Setoran', rp(mAvgIn), 'Nominal per transaksi', 'purple', ICONS.chart)}
+    `}
   </div>
+
+  ${isAll ? '' : `
+  <div class="g2" style="margin-bottom:20px">
+    <section class="card">
+      <h3>Distribusi Setoran (${mlong(analyticsPeriod)})</h3>
+      <div class="tw"><table><tbody>${catRows('in')}</tbody></table></div>
+    </section>
+    <section class="card">
+      <h3>Distribusi Penarikan (${mlong(analyticsPeriod)})</h3>
+      <div class="tw"><table><tbody>${catRows('out')}</tbody></table></div>
+    </section>
+  </div>`}
 
   <div class="g2">
     <section class="card">
       <h3>Target Rencana vs Realisasi Aktual</h3>
-      <p class="mu" style="font-size:12.5px;margin-bottom:10px">Bandingkan garis target rencana awal dengan saldo riil tabunganmu.</p>
+      <p class="mu" style="font-size:12.5px;margin-bottom:10px">Bandingkan garis target rencana awal dengan saldo tabunganmu.</p>
       <div class="ch" id="c_plan"></div>
     </section>
     <section class="card">
-      <h3>Setoran vs Penarikan per Bulan</h3>
-      <p class="mu" style="font-size:12.5px;margin-bottom:10px">Pantau perbandingan uang masuk vs uang keluar setiap bulan.</p>
+      <div class="chart-header">
+        <div>
+          <h3 style="margin:0">Setoran vs Penarikan per Bulan</h3>
+          <p class="mu" style="font-size:12.5px;margin:2px 0 0">Perbandingan uang masuk vs uang keluar setiap periode bulanan.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <select id="c2-filter" class="cal-select" style="font-size:12px;padding:4px 8px">
+            <option value="all" ${c2Filter === 'all' ? 'selected' : ''}>Semua Bulan</option>
+            <option value="12m" ${c2Filter === '12m' ? 'selected' : ''}>12 Bulan Terakhir</option>
+            <option value="6m" ${c2Filter === '6m' ? 'selected' : ''}>6 Bulan Terakhir</option>
+            ${allYears.map(yr => `<option value="${yr}" ${c2Filter === String(yr) ? 'selected' : ''}>Tahun ${yr}</option>`).join('')}
+          </select>
+        </div>
+      </div>
       <div class="ch" id="c2"></div>
+      <div style="margin-top:10px;padding:8px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--bd);font-size:12px" class="mu">
+        Arahkan kursor pada batang grafik di atas untuk melihat rincian surplus/defisit serta rasio penghematan setiap bulannya.
+      </div>
     </section>
   </div>
 
@@ -1345,7 +1588,7 @@ V.analytics = () => {
           <b>${rp(sa.expectedBal)}</b>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg);border-radius:10px">
-          <span class="mu">Saldo Tabungan Riil:</span>
+          <span class="mu">Saldo Tabungan Aktual:</span>
           <b style="color:var(--ac2)">${rp(c.bal)}</b>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg);border-radius:10px">
@@ -1358,21 +1601,92 @@ V.analytics = () => {
   </div>
 
   <section class="card" style="margin-top:20px">
-    <h3>Ringkasan Arus Kas Bulanan</h3>
-    ${monthTable(m)}
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+      <h3 style="margin:0">Ringkasan Arus Kas Bulanan</h3>
+      ${isAll ? '' : `<button type="button" class="btn ghost small" id="btn-reset-analytics-filter">Tampilkan Semua Periode</button>`}
+    </div>
+    ${monthTable(allMonths, isAll ? null : analyticsPeriod)}
   </section>`;
+
+  $('#analytics-month-sel').onchange = e => {
+    analyticsPeriod = e.target.value;
+    render();
+  };
+  $('#c2-filter').onchange = e => {
+    c2Filter = e.target.value;
+    render();
+  };
+  if ($('#btn-reset-analytics-filter')) {
+    $('#btn-reset-analytics-filter').onclick = () => {
+      analyticsPeriod = 'all';
+      render();
+    };
+  }
 
   chart('c_plan', L, [
     { N: 'Realisasi Aktual', c: GR, D: actualData, area: 1 },
     { N: 'Target Rencana', c: BL, D: plannedData, dash: '5 4' }
   ]);
-  chart('c2', m.map(x => mlabel(x.k)), [
-    { N: 'Setoran', c: GR, D: m.map(x => x.i) },
-    { N: 'Penarikan', c: RD, D: m.map(x => x.o) }
-  ], 1);
+
+  chart('c2', displayM.map(x => mlabel(x.k)), [
+    { N: 'Setoran', c: GR, D: displayM.map(x => x.i) },
+    { N: 'Penarikan', c: RD, D: displayM.map(x => x.o) }
+  ], 1, {
+    customTip: (i) => {
+      const item = displayM[i];
+      if (!item) return '';
+      const net = item.i - item.o;
+      const rate = item.i > 0 ? (net / item.i * 100) : 0;
+      return `
+      <b style="display:block;margin-bottom:5px;color:var(--tx-bright);font-size:13px">${mlong(item.k)}</b>
+      <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:2px">
+        <span><i style="background:${GR}"></i>Setoran:</span>
+        <b style="color:var(--ac2)">+${rp(item.i)}</b>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:4px">
+        <span><i style="background:${RD}"></i>Penarikan:</span>
+        <b style="color:var(--red)">-${rp(item.o)}</b>
+      </div>
+      <div style="padding-top:4px;border-top:1px solid var(--bd);display:flex;justify-content:space-between;gap:12px">
+        <span>Tabungan Bersih:</span>
+        <b style="color:${net >= 0 ? 'var(--ac2)' : 'var(--red)'}">${net >= 0 ? '+' : ''}${rp(net)}</b>
+      </div>
+      <div style="font-size:11px;color:var(--mu);margin-top:2px">
+        ${rate >= 0 ? `${rate.toFixed(0)}% dana berhasil dihemat` : 'Pengeluaran melebihi setoran'}
+      </div>`;
+    }
+  });
 };
 
-const monthTable = m => m.length ? `<div class="tw"><table><thead><tr><th>Bulan</th><th class="r">Setoran</th><th class="r">Penarikan</th><th class="r">Tabungan Bersih</th><th class="r">Jumlah Transaksi</th></tr></thead><tbody>${[...m].reverse().map(x => `<tr><td>${mlong(x.k)}</td><td class="r in">+${rp(x.i)}</td><td class="r out">-${rp(x.o)}</td><td class="r" style="font-weight:600;color:${x.i - x.o >= 0 ? 'var(--ac2)' : 'var(--red)'}">${x.i - x.o >= 0 ? '+' : ''}${rp(x.i - x.o)}</td><td class="r">${x.n}</td></tr>`).join('')}</tbody></table></div>` : '<p class="mu empty">Belum ada transaksi pada periode bulanan.</p>';
+const monthTable = (m, activeK = null) => m.length ? `
+<div class="tw">
+  <table>
+    <thead>
+      <tr>
+        <th>Bulan</th>
+        <th class="r">Setoran</th>
+        <th class="r">Penarikan</th>
+        <th class="r">Tabungan Bersih</th>
+        <th class="r">Status</th>
+        <th class="r">Jumlah Transaksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${[...m].reverse().map(x => {
+        const net = x.i - x.o;
+        const isSel = activeK === x.k;
+        return `<tr style="${isSel ? 'background:rgba(16,185,129,0.12);font-weight:600' : ''}">
+          <td>${mlong(x.k)} ${isSel ? '<span class="pill ahead" style="padding:2px 8px;font-size:11px;margin-left:6px">Terpilih</span>' : ''}</td>
+          <td class="r in">+${rp(x.i)}</td>
+          <td class="r out">-${rp(x.o)}</td>
+          <td class="r" style="font-weight:600;color:${net >= 0 ? 'var(--ac2)' : 'var(--red)'}">${net >= 0 ? '+' : ''}${rp(net)}</td>
+          <td class="r"><span class="pill ${net >= 0 ? 'ahead' : 'behind'}" style="font-size:11px;padding:2px 8px">${net >= 0 ? 'Surplus' : 'Defisit'}</span></td>
+          <td class="r">${x.n}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>
+</div>` : '<p class="mu empty">Belum ada transaksi pada periode bulanan.</p>';
 
 /* ---------- Target & Milestone ---------- */
 V.target = () => {

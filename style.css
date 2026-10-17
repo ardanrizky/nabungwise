@@ -835,6 +835,68 @@ td.out, .out {
   flex-wrap: wrap;
 }
 
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.range-pills {
+  display: inline-flex;
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  border-radius: var(--r-sm);
+  padding: 3px;
+  gap: 2px;
+}
+
+.range-pill {
+  background: none;
+  border: none;
+  color: var(--mu);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.range-pill:hover {
+  color: var(--tx-bright);
+}
+
+.range-pill.active {
+  background: var(--ac);
+  color: #ffffff;
+  box-shadow: 0 2px 8px var(--ac-glow);
+}
+
+.chart-guide {
+  stroke: var(--ac);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  opacity: 0.65;
+}
+
+.chart-glow-dot {
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 6px var(--ac));
+}
+
+.chart-bar {
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.chart-bar:hover {
+  opacity: 0.85;
+  filter: brightness(1.2);
+}
+
 /* ---------- Financial Insights Modern Grid ---------- */
 .insights-card {
   display: flex;
