@@ -1863,17 +1863,29 @@ function deleteBill(id) {
 
 function openNotificationSettingsModal() {
   const d = $('#dlg');
-  const perm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported';
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || Boolean(navigator.standalone);
+  const hasNotificationAPI = typeof Notification !== 'undefined';
+  const perm = hasNotificationAPI ? Notification.permission : 'unsupported';
 
   let statusBadge = '';
-  if (perm === 'granted') {
+  let statusDesc = '';
+
+  if (isIOS && !isStandalone) {
+    statusBadge = '<span class="bill-status-badge soon">Perlu Tambah ke Layar Utama</span>';
+    statusDesc = 'Khusus iPhone (iOS), sistem Apple mewajibkan web ditambahkan ke Layar Utama (Add to Home Screen) terlebih dahulu agar notifikasi dapat diaktifkan.';
+  } else if (perm === 'granted') {
     statusBadge = '<span class="bill-status-badge paid">Izin Notifikasi Aktif</span>';
+    statusDesc = 'Peramban diizinkan menampilkan notifikasi push latar belakang.';
   } else if (perm === 'denied') {
     statusBadge = '<span class="bill-status-badge overdue">Izin Ditolak / Diblokir</span>';
+    statusDesc = 'Izin diblokir di peramban. Buka ikon setelan/gembok di URL bar untuk mengizinkan.';
   } else if (perm === 'unsupported') {
-    statusBadge = '<span class="bill-status-badge upcoming">Browser Tidak Mendukung</span>';
+    statusBadge = '<span class="bill-status-badge upcoming">Peramban Tidak Mendukung</span>';
+    statusDesc = 'Peramban saat ini belum mendukung Web Push Notification.';
   } else {
     statusBadge = '<span class="bill-status-badge soon">Belum Diizinkan</span>';
+    statusDesc = 'Peramban memerlukan izinmu untuk mengirimkan notifikasi.';
   }
 
   d.innerHTML = `
@@ -1886,10 +1898,23 @@ function openNotificationSettingsModal() {
     <div class="notif-status-card" style="margin-bottom:14px">
       <div>
         <b style="font-size:14px;color:var(--tx-bright);display:block;margin-bottom:3px">Status Izin Peramban</b>
-        <span class="mu" style="font-size:12.5px">${perm === 'granted' ? 'Peramban diizinkan menampilkan notifikasi push latar belakang.' : (perm === 'denied' ? 'Izin diblokir di peramban. Buka ikon setelan/gembok di URL bar untuk mengizinkan.' : 'Peramban memerlukan izinmu untuk mengirimkan notifikasi.')}</span>
+        <span class="mu" style="font-size:12.5px">${statusDesc}</span>
       </div>
       <div>${statusBadge}</div>
     </div>
+
+    ${isIOS && !isStandalone ? `
+      <div style="padding:14px 16px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:12px;margin-bottom:14px">
+        <b style="color:var(--ac2);font-size:13.5px;display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          ${ICONS.bolt} Cara Mengaktifkan di iPhone (iOS):
+        </b>
+        <div style="font-size:12.5px;color:var(--tx);display:grid;gap:8px;line-height:1.45">
+          <div><b>1. Tekan tombol Bagikan (Share)</b> di bilah bawah peramban (ikon kotak dengan panah ke atas).</div>
+          <div><b>2. Pilih "Tambah ke Layar Utama" (Add to Home Screen)</b>, lalu tekan "Tambah".</div>
+          <div><b>3. Buka TabunganKu dari Layar Utama HP</b>, lalu buka menu ini kembali untuk mengizinkan notifikasi.</div>
+        </div>
+      </div>
+    ` : ''}
 
     <div style="display:grid;gap:10px;margin-bottom:14px">
       ${perm !== 'granted' && perm !== 'unsupported' ? `
@@ -1902,7 +1927,7 @@ function openNotificationSettingsModal() {
       <b style="color:var(--tx-bright);display:block;margin-bottom:4px">Cara Kerja Pengingat:</b>
       1. Sistem memeriksa tanggal jatuh tempo tagihan yang belum lunas setiap hari.<br>
       2. Peringatan dikirimkan pada jam pilihanmu di hari H-7, H-5, H-3, H-1, atau Hari H.<br>
-      3. Di HP (Chrome/Edge Android), aplikasi dapat di-install lewat menu "Tambah ke Layar Utama" sebagai PWA agar notifikasi lebih optimal.
+      3. Di dasbor dan kalender aplikasi, peringatan tagihan jatuh tempo juga akan selalu muncul secara otomatis.
     </div>
 
     <div class="row" style="margin-top:14px">
@@ -1930,6 +1955,10 @@ function openNotificationSettingsModal() {
   }
 
   $('#btn-test-notif').onclick = () => {
+    if (isIOS && !isStandalone) {
+      toast('Di iPhone, tambahkan aplikasi ke Layar Utama (Add to Home Screen) terlebih dahulu');
+      return;
+    }
     if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
       Notification.requestPermission().then(res => {
         if (res === 'granted') {
