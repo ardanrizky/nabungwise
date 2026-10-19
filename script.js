@@ -14,12 +14,16 @@ let S = (() => {
   const initial = {
     s: null, tx: [], ms: [], log: [], theme: 'dark', hideBalance: false,
     bills: [],
-    billSettings: { remindTime: '08:00', remindFreq: 1 }
+    billSettings: { remindTime: '08:00', remindFreq: 1 },
+    investments: [],
+    invTx: []
   };
   const loaded = d && typeof d === 'object' ? d : {};
   return Object.assign(initial, loaded, {
     bills: Array.isArray(loaded.bills) ? loaded.bills : (loaded.s?._bills || []),
-    billSettings: Object.assign({ remindTime: '08:00', remindFreq: 1 }, loaded.billSettings || loaded.s?._billSettings || {})
+    billSettings: Object.assign({ remindTime: '08:00', remindFreq: 1 }, loaded.billSettings || loaded.s?._billSettings || {}),
+    investments: Array.isArray(loaded.investments) ? loaded.investments : (loaded.s?._investments || []),
+    invTx: Array.isArray(loaded.invTx) ? loaded.invTx : (loaded.s?._invTx || [])
   });
 })();
 
@@ -85,7 +89,9 @@ async function fetchFromCloud() {
         log: Array.isArray(data.logs) ? data.logs : [],
         theme: data.theme || S.theme,
         bills: Array.isArray(data.settings?._bills) ? data.settings._bills : (S.bills || []),
-        billSettings: data.settings?._billSettings || S.billSettings || { remindTime: '08:00', remindFreq: 1 }
+        billSettings: data.settings?._billSettings || S.billSettings || { remindTime: '08:00', remindFreq: 1 },
+        investments: Array.isArray(data.settings?._investments) ? data.settings._investments : (S.investments || []),
+        invTx: Array.isArray(data.settings?._invTx) ? data.settings._invTx : (S.invTx || [])
       };
       localStorage.setItem(K, JSON.stringify(S));
       applyTheme();
@@ -108,6 +114,8 @@ const save = () => {
     if (S.s) {
       S.s._bills = S.bills || [];
       S.s._billSettings = S.billSettings || {};
+      S.s._investments = S.investments || [];
+      S.s._invTx = S.invTx || [];
     }
     localStorage.setItem(K, JSON.stringify(S));
   } catch (e) {
@@ -124,10 +132,10 @@ const p2 = n => String(n).padStart(2, '0'), iso = d => `${d.getFullYear()}-${p2(
 const pd = s => new Date(s + 'T00:00:00'), fd = s => pd(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 const fdo = d => d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 const DAYS = { harian: 1, mingguan: 7, bulanan: 30 }, UNIT = { harian: 'hari', mingguan: 'minggu', bulanan: 'bulan' }, FREQ = { harian: 'Harian', mingguan: 'Mingguan', bulanan: 'Bulanan' };
-const CAT = { in: ['Gaji', 'Bonus', 'Hadiah', 'Sisihan Rutin', 'Lainnya'], out: ['Kebutuhan', 'Darurat', 'Hiburan', 'Pendidikan', 'Lainnya'] };
+const CAT = { in: ['Gaji', 'Bonus', 'Hadiah', 'Sisihan Rutin', 'Hasil Investasi', 'Lainnya'], out: ['Kebutuhan', 'Darurat', 'Hiburan', 'Pendidikan', 'Alokasi Investasi', 'Lainnya'] };
 const MN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 const opts = (o, sel) => Object.entries(o).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${v}</option>`).join('');
-const GR = '#10b981', RD = '#f87171', AM = '#fbbf24', BL = '#60a5fa';
+const GR = '#10b981', RD = '#f87171', AM = '#fbbf24', BL = '#60a5fa', PU = '#a855f7';
 let tt; const toast = m => { const t = $('#toast'); if (!t) return; t.textContent = m; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2600); };
 
 /* ---------- Ikon SVG Profesional (Zero Emojis) ---------- */
@@ -145,6 +153,9 @@ const ICONS = {
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
   shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
   wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M7 15h0M2 9.5h20"></path></svg>',
+  invest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 7L13.5 15.5L8.5 10.5L2 17"></path><polyline points="16 7 22 7 22 13"></polyline></svg>',
+  pie: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>',
+  layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>',
   moon: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>',
   sun: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>',
   user: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>',
@@ -302,6 +313,29 @@ function calc(l = S.tx) {
     i, o, bal,
     pct: target > 0 ? Math.max(0, Math.min(100, bal / target * 100)) : 0,
     rem: Math.max(0, target - bal)
+  };
+}
+
+function calcInvestments() {
+  const list = Array.isArray(S.investments) ? S.investments : [];
+  const total = list.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  return { list, total, count: list.length };
+}
+
+function calcNetWorth(customBal) {
+  const inv = calcInvestments();
+  const bal = typeof customBal === 'number' ? customBal : calc().bal;
+  const netWorth = bal + inv.total;
+  const savingsPct = netWorth > 0 ? Math.max(0, Math.min(100, (bal / netWorth) * 100)) : (bal > 0 ? 100 : 0);
+  const invPct = netWorth > 0 ? Math.max(0, Math.min(100, (inv.total / netWorth) * 100)) : (inv.total > 0 ? 100 : 0);
+  return {
+    netWorth,
+    savingsBal: bal,
+    invTotal: inv.total,
+    savingsPct,
+    invPct,
+    invCount: inv.count,
+    list: inv.list
   };
 }
 
@@ -751,6 +785,7 @@ function projChart(id, b, t, r, f) {
 const NAV = [
   ['dashboard', 'Dashboard', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>'],
   ['riwayat', 'Riwayat Transaksi', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>'],
+  ['investasi', 'Portofolio Investasi', ICONS.invest],
   ['tagihan', 'Jadwal Tagihan', ICONS.bell],
   ['analytics', 'Analisis & Arus Kas', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>'],
   ['target', 'Target & Milestone', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>'],
@@ -1358,6 +1393,7 @@ function rows(l, act) {
 
 V.dashboard = () => {
   const c = calc(), s = S.s, e = est(c.bal), st = streak(), sa = scheduleAnalysis(), nm = nextMilestone();
+  const nw = calcNetWorth(c.bal);
 
   let milestoneSnippet = 'Belum ada milestone';
   if (nm) {
@@ -1396,6 +1432,63 @@ V.dashboard = () => {
 
   $('#view').innerHTML = `
   ${billBannerHtml}
+
+  <!-- Net Worth & Portofolio Finansial Card -->
+  <div class="card net-worth-card">
+    <div class="nw-header">
+      <div class="nw-title-group">
+        <div class="hero-chip-badge nw-badge">
+          <span class="pulse-dot"></span> Ringkasan Aset Finansial Terpadu
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <span class="nw-label">TOTAL ASET KESELURUHAN (NET WORTH)</span>
+          <button type="button" class="hero-privacy-btn" id="hero-eye-toggle-nw" title="${isBalanceHidden ? 'Tampilkan Nominal' : 'Sembunyikan Nominal'}">
+            ${isBalanceHidden ? ICONS.eyeOff : ICONS.eye}
+          </button>
+        </div>
+        <div class="nw-val">${rp(nw.netWorth)}</div>
+      </div>
+      <div class="nw-actions">
+        <button type="button" class="btn small" id="btn-quick-inv-topup">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Cicil Investasi</span>
+        </button>
+        <a href="#investasi" class="btn ghost small" style="text-decoration:none">Portofolio Lengkap →</a>
+      </div>
+    </div>
+
+    <div class="nw-grid">
+      <div class="nw-item savings-box">
+        <div class="nw-item-head">
+          <span class="nw-item-title"><span class="dot-savings"></span> Total Tabungan Saat Ini</span>
+          <span class="nw-pct-badge">${nw.savingsPct.toFixed(1)}%</span>
+        </div>
+        <div class="nw-item-val">${rp(nw.savingsBal)}</div>
+        <div class="nw-item-sub">Kas likuid siap pakai • ${c.pct.toFixed(1)}% dari target</div>
+      </div>
+
+      <div class="nw-item inv-box">
+        <div class="nw-item-head">
+          <span class="nw-item-title"><span class="dot-inv"></span> Dana Teralokasi Investasi</span>
+          <span class="nw-pct-badge">${nw.invPct.toFixed(1)}%</span>
+        </div>
+        <div class="nw-item-val">${rp(nw.invTotal)}</div>
+        <div class="nw-item-sub">${nw.invCount} pos investasi aktif • Akumulasi cicilan</div>
+      </div>
+    </div>
+
+    <div class="nw-bar-container">
+      <div class="nw-bar">
+        <div class="nw-bar-part savings" style="width:${nw.savingsPct}%;" title="Tabungan: ${nw.savingsPct.toFixed(1)}%"></div>
+        <div class="nw-bar-part inv" style="width:${nw.invPct}%;" title="Investasi: ${nw.invPct.toFixed(1)}%"></div>
+      </div>
+      <div class="nw-bar-labels">
+        <span><span class="dot-savings"></span> Tabungan Kas Likuid (${nw.savingsPct.toFixed(1)}%)</span>
+        <span><span class="dot-inv"></span> Dana Portofolio Investasi (${nw.invPct.toFixed(1)}%)</span>
+      </div>
+    </div>
+  </div>
+
   <div class="stats">
     <div class="card hero">
       <div class="hero-chip-row">
@@ -1418,6 +1511,8 @@ V.dashboard = () => {
       </div>
     </div>
 
+    ${st4('Total Aset Finansial', rp(nw.netWorth), 'Tabungan + Investasi', 'emerald', ICONS.bank)}
+    ${st4('Dana Teralokasi Inves', rp(nw.invTotal), `${nw.invCount} pos investasi aktif`, 'purple', ICONS.invest)}
     ${st4('Target Tabungan', rp(s.target), 'Rutin ' + rp(s.routine) + ' / ' + UNIT[s.freq], 'sky', ICONS.target)}
     ${st4('Status Jadwal', `<span class="pill ${sa.badgeClass}">${sa.aheadText}</span>`, sa.diffBal >= 0 ? `Surplus ${rp(sa.diffBal)} dari target` : `Kurang ${rp(Math.abs(sa.diffBal))} dari target`, 'amber', ICONS.clock)}
     ${st4('Sisa Menuju Target', rp(c.rem), c.rem ? `${(100 - c.pct).toFixed(1)}% lagi untuk dicapai` : 'Target Tercapai', 'purple', ICONS.flag)}
@@ -1460,6 +1555,47 @@ V.dashboard = () => {
     ${insCard()}
   </div>
 
+  <!-- Alokasi Investasi Aktif Preview -->
+  <section class="card" style="margin-top:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <h3 style="margin:0;display:flex;align-items:center;gap:8px">
+        ${ICONS.invest}
+        Alokasi Dana Investasi Aktif (${nw.invCount} Pos)
+      </h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn small" id="btn-dash-add-inv">+ Tambah Pos</button>
+        <a href="#investasi" class="btn ghost small" style="text-decoration:none">Kelola Portofolio →</a>
+      </div>
+    </div>
+    ${nw.invCount === 0 ? `
+      <div style="text-align:center;padding:24px 14px">
+        <p class="mu" style="font-size:13px;margin-bottom:12px">Belum ada pos investasi yang dicatat. Catat pos/tempat investasimu untuk mulai memantau akumulasi cicilan modal dan total aset!</p>
+        <button class="btn small" id="btn-dash-add-inv-first">+ Tambah Pos Investasi Pertama</button>
+      </div>
+    ` : `
+      <div class="inv-grid" style="margin-top:0">
+        ${(S.investments || []).slice(0, 4).map(inv => {
+          const pct = nw.invTotal > 0 ? ((Number(inv.amount) || 0) / nw.invTotal * 100).toFixed(1) : '0.0';
+          return `
+            <div class="inv-card" style="padding:16px;margin:0">
+              <div>
+                <div class="inv-card-head">
+                  <span class="inv-card-name" style="font-size:14.5px">${esc(inv.name)}</span>
+                  <span class="inv-card-badge">${pct}% Porsi</span>
+                </div>
+                <div class="inv-card-amount" style="font-size:20px;margin:8px 0 4px">${rp(inv.amount)}</div>
+                ${inv.note ? `<p class="mu" style="font-size:12px;margin:0">${esc(inv.note)}</p>` : ''}
+              </div>
+              <div style="display:flex;gap:6px;margin-top:8px">
+                <button class="btn small" data-dash-topup="${inv.id}" style="flex:1;padding:6px 10px;font-size:12px">+ Cicil</button>
+                <a href="#investasi" class="btn ghost small" style="padding:6px 10px;font-size:12px;text-decoration:none">Detail</a>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+    `}
+  </section>
+
   <section class="card" style="margin-top:20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <h3 style="margin:0">
@@ -1472,6 +1608,14 @@ V.dashboard = () => {
   </section>`;
 
   if ($('#hero-eye-toggle')) $('#hero-eye-toggle').onclick = toggleBalancePrivacy;
+  if ($('#hero-eye-toggle-nw')) $('#hero-eye-toggle-nw').onclick = toggleBalancePrivacy;
+  if ($('#btn-quick-inv-topup')) $('#btn-quick-inv-topup').onclick = () => openInvestTopupModal();
+  if ($('#btn-dash-add-inv')) $('#btn-dash-add-inv').onclick = () => openAddInvestmentModal();
+  if ($('#btn-dash-add-inv-first')) $('#btn-dash-add-inv-first').onclick = () => openAddInvestmentModal();
+  document.querySelectorAll('[data-dash-topup]').forEach(b => {
+    b.onclick = () => openInvestTopupModal(b.dataset.dashTopup);
+  });
+
   const b = balSeries(balRange);
   chart('c1', b.L, [{ N: 'Saldo Tabungan', c: GR, D: b.D, area: 1 }]);
 
@@ -1482,6 +1626,662 @@ V.dashboard = () => {
     };
   });
 };
+
+/* ---------- Portofolio Investasi View ---------- */
+V.investasi = () => {
+  const c = calc(), nw = calcNetWorth(c.bal);
+  const invList = S.investments || [];
+  const invTxList = sorted(S.invTx || []);
+  const COLORS = ['#10b981', '#a855f7', '#38bdf8', '#f59e0b', '#ec4899', '#6366f1', '#14b8a6', '#f43f5e'];
+
+  let distBarHtml = '';
+  if (nw.invTotal > 0 && invList.length > 0) {
+    const segments = invList.map((inv, idx) => {
+      const color = COLORS[idx % COLORS.length];
+      const pct = (Number(inv.amount) || 0) / nw.invTotal * 100;
+      return `<div class="inv-dist-segment" style="width:${pct}%;background:${color}" title="${esc(inv.name)}: ${pct.toFixed(1)}%"></div>`;
+    }).join('');
+
+    const chips = invList.map((inv, idx) => {
+      const color = COLORS[idx % COLORS.length];
+      const pct = (Number(inv.amount) || 0) / nw.invTotal * 100;
+      return `
+        <div class="inv-dist-chip">
+          <span class="inv-chip-color" style="background:${color}"></span>
+          <b>${esc(inv.name)}</b>: <span class="mu">${rp(inv.amount)} (${pct.toFixed(1)}%)</span>
+        </div>`;
+    }).join('');
+
+    distBarHtml = `
+      <section class="card">
+        <h3 style="margin-bottom:8px">
+          ${ICONS.pie}
+          Distribusi Alokasi Portofolio
+        </h3>
+        <p class="mu" style="font-size:13px;margin-bottom:12px">Komposisi sebaran dana yang kamu investasikan di berbagai pos dan instrumen.</p>
+        <div class="inv-dist-container">
+          <div class="inv-dist-bar">${segments}</div>
+          <div class="inv-dist-chips">${chips}</div>
+        </div>
+      </section>`;
+  }
+
+  let cardsHtml = '';
+  if (invList.length === 0) {
+    cardsHtml = `
+      <div class="card" style="text-align:center;padding:40px 20px">
+        <div style="width:56px;height:56px;border-radius:16px;background:var(--pur-bg);color:var(--pur);display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px">
+          ${ICONS.invest}
+        </div>
+        <h3 style="margin-bottom:6px">Belum Ada Pos Investasi Tercatat</h3>
+        <p class="mu" style="max-width:440px;margin:0 auto 18px;font-size:13.5px">
+          Catat pos/tempat investasimu (misal: Reksadana, Saham BBRI, Emas Antam, Kripto, Deposito) untuk melacak akumulasi cicilan dan total asetmu secara real-time.
+        </p>
+        <button class="btn" id="btn-add-inv-empty">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Tambah Pos Investasi Pertama</span>
+        </button>
+      </div>`;
+  } else {
+    cardsHtml = `
+      <div class="inv-grid">
+        ${invList.map((inv, idx) => {
+          const color = COLORS[idx % COLORS.length];
+          const pct = nw.invTotal > 0 ? ((Number(inv.amount) || 0) / nw.invTotal * 100).toFixed(1) : '0.0';
+          const posTx = invTxList.filter(t => String(t.invId) === String(inv.id));
+          const txCount = posTx.length;
+          const lastTx = posTx[0];
+          return `
+            <div class="inv-card">
+              <div>
+                <div class="inv-card-head">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="inv-chip-color" style="background:${color};width:12px;height:12px;border-radius:4px"></span>
+                    <span class="inv-card-name">${esc(inv.name)}</span>
+                  </div>
+                  <span class="inv-card-badge">${pct}% Porsi</span>
+                </div>
+                <div class="inv-card-amount" style="margin:12px 0 8px">${rp(inv.amount)}</div>
+                ${inv.note ? `<p class="mu" style="font-size:12.5px;margin-bottom:10px">${esc(inv.note)}</p>` : ''}
+                <div class="inv-card-meta">
+                  <div>${txCount > 0 ? `${txCount}x Aktivitas / Cicilan` : 'Belum ada riwayat cicilan'}</div>
+                  ${lastTx ? `<div>Terakhir: <b>${fd(lastTx.date)}</b> (${lastTx.type === 'in' ? '+ ' : '- '}${rp(lastTx.amount)})</div>` : ''}
+                </div>
+              </div>
+              <div class="inv-card-actions">
+                <button class="btn small" data-act="topup-inv" data-id="${inv.id}">+ Cicil</button>
+                <button class="btn ghost small" data-act="withdraw-inv" data-id="${inv.id}">Cairkan</button>
+                <button class="btn ghost small" data-act="history-inv" data-id="${inv.id}">Riwayat</button>
+                <button class="ib" data-act="edit-inv" data-id="${inv.id}" title="Edit Pos">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                </button>
+                <button class="ib" data-act="del-inv" data-id="${inv.id}" title="Hapus Pos" style="color:var(--red)">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  let txTableHtml = '';
+  if (invTxList.length > 0) {
+    txTableHtml = `
+      <section class="card" style="margin-top:24px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <h3 style="margin:0;display:flex;align-items:center;gap:8px">${ICONS.clock} Riwayat Cicilan & Aktivitas Investasi</h3>
+          <span class="mu" style="font-size:12.5px">${invTxList.length} aktivitas tercatat</span>
+        </div>
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Tempat / Pos</th>
+                <th>Jenis</th>
+                <th>Sumber Dana</th>
+                <th>Catatan</th>
+                <th class="r">Nominal</th>
+                <th class="r">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invTxList.map(tx => `
+                <tr>
+                  <td>${fd(tx.date)}</td>
+                  <td><b>${esc(tx.invName || 'Investasi')}</b></td>
+                  <td><span class="bd ${tx.type === 'in' ? 'in' : 'out'}">${tx.type === 'in' ? '+ Cicil / Masuk' : '- Cairkan'}</span></td>
+                  <td>${tx.source === 'tabungan' ? '<span class="pill ahead">Potong Tabungan</span>' : '<span class="pill" style="background:var(--pur-bg);color:var(--pur)">Dana Eksternal</span>'}</td>
+                  <td>${esc(tx.note) || '-'}</td>
+                  <td class="r ${tx.type === 'in' ? 'in' : 'out'}">${tx.type === 'in' ? '+' : '-'}${rp(tx.amount)}</td>
+                  <td class="r"><button class="ib" data-act="del-inv-tx" data-id="${tx.id}" title="Hapus Riwayat" style="color:var(--red)">Hapus</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>`;
+  }
+
+  $('#view').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:20px">
+      <div>
+        <h2 style="margin:0;display:flex;align-items:center;gap:8px">
+          ${ICONS.invest}
+          Portofolio & Alokasi Investasi
+        </h2>
+        <p class="mu" style="margin:4px 0 0;font-size:13.5px">
+          Catat pos investasi tempat kamu menyicil modal. Dana teralokasi otomatis dihitung ke dalam Total Aset (Net Worth).
+        </p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="btn ghost" id="btn-topup-inv-main">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Catat Cicilan Investasi</span>
+        </button>
+        <button class="btn" id="btn-add-inv-main">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>Tambah Pos Investasi</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="stats" style="grid-template-columns:repeat(auto-fit, minmax(210px, 1fr))">
+      ${st4('Dana Teralokasi Inves', rp(nw.invTotal), `${nw.invCount} pos investasi aktif`, 'purple', ICONS.invest)}
+      ${st4('Total Tabungan Saat Ini', rp(nw.savingsBal), 'Kas siap pakai / likuid', 'sky', ICONS.wallet)}
+      ${st4('Total Aset (Net Worth)', rp(nw.netWorth), 'Tabungan + Portofolio Investasi', 'emerald', ICONS.bank)}
+      ${st4('Porsi Portofolio Inves', `${nw.invPct.toFixed(1)}%`, `${nw.savingsPct.toFixed(1)}% di tabungan kas`, 'amber', ICONS.chart)}
+    </div>
+
+    ${distBarHtml}
+
+    <section class="card" style="margin-top:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+        <h3 style="margin:0">${ICONS.layers} Pos & Tempat Investasi (${invList.length})</h3>
+        ${invList.length > 0 ? `<button class="btn ghost small" id="btn-add-inv-sec">+ Tambah Pos Lain</button>` : ''}
+      </div>
+      ${cardsHtml}
+    </section>
+
+    ${txTableHtml}
+  `;
+
+  if ($('#btn-add-inv-main')) $('#btn-add-inv-main').onclick = () => openAddInvestmentModal();
+  if ($('#btn-add-inv-sec')) $('#btn-add-inv-sec').onclick = () => openAddInvestmentModal();
+  if ($('#btn-add-inv-empty')) $('#btn-add-inv-empty').onclick = () => openAddInvestmentModal();
+  if ($('#btn-topup-inv-main')) $('#btn-topup-inv-main').onclick = () => openInvestTopupModal();
+
+  $('#view').onclick = e => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const act = btn.dataset.act;
+    const id = btn.dataset.id;
+    if (act === 'topup-inv') openInvestTopupModal(id);
+    if (act === 'withdraw-inv') openInvestWithdrawModal(id);
+    if (act === 'history-inv') openInvestHistoryModal(id);
+    if (act === 'edit-inv') openAddInvestmentModal(id);
+    if (act === 'del-inv') openDeleteInvestmentModal(id);
+    if (act === 'del-inv-tx') openDeleteInvTxModal(id);
+  };
+};
+
+/* ---------- Modals Alokasi Investasi ---------- */
+function openAddInvestmentModal(id = null) {
+  const isEdit = Boolean(id);
+  const inv = isEdit ? S.investments.find(x => String(x.id) === String(id)) : null;
+  const d = $('#dlg');
+
+  d.innerHTML = `
+    <form id="form-inv" style="display:grid;gap:14px">
+      <h3>${isEdit ? 'Edit Pos Investasi' : 'Tambah Pos Investasi Baru'}</h3>
+      <p class="mu" style="font-size:13px;margin:0">
+        ${isEdit ? 'Perbarui informasi pos atau saldo modal investasi ini.' : 'Catat tempat/pos di mana kamu menaruh atau menyicil investasi (nama bebas).'}
+      </p>
+
+      <label>Nama Tempat / Pos Investasi
+        <input name="name" type="text" required placeholder="Contoh: Reksadana Sucorinvest, Saham BBRI, Emas Antam, Kripto" value="${esc(inv?.name || '')}">
+      </label>
+
+      <label>Nominal Modal ${isEdit ? 'Terkini' : 'Awal'} (Rp)
+        <input name="amount" type="number" min="0" step="1" required placeholder="Contoh: 1000000" value="${inv?.amount ?? 0}">
+      </label>
+
+      ${!isEdit ? `
+        <label>Sumber Modal Awal
+          <div class="seg" style="margin-top:6px">
+            <label><input type="radio" name="source" value="external" checked> Dana Luar / Sudah Ada</label>
+            <label><input type="radio" name="source" value="tabungan"> Potong dari Tabungan Kas</label>
+          </div>
+        </label>
+      ` : ''}
+
+      <label>Catatan / Target (opsional)
+        <input name="note" type="text" maxlength="120" placeholder="Contoh: Cicil rutin 500rb per bulan, Jangka panjang 5 tahun" value="${esc(inv?.note || '')}">
+      </label>
+
+      <div class="row" style="margin-top:8px">
+        <button type="button" class="btn ghost" id="btn-cancel-inv">Batal</button>
+        <button type="submit" class="btn">${isEdit ? 'Simpan Perubahan' : 'Tambahkan Pos Investasi'}</button>
+      </div>
+    </form>
+  `;
+
+  d.showModal();
+  $('#btn-cancel-inv').onclick = () => d.close();
+
+  $('#form-inv').onsubmit = e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const name = String(fd.get('name') || '').trim();
+    const amount = Math.max(0, Math.round(+fd.get('amount') || 0));
+    const note = String(fd.get('note') || '').trim();
+    const source = fd.get('source') || 'external';
+
+    if (!name) {
+      toast('Nama pos investasi wajib diisi');
+      return;
+    }
+
+    if (isEdit && inv) {
+      inv.name = name;
+      inv.amount = amount;
+      inv.note = note;
+      save();
+      d.close();
+      render();
+      toast('Pos investasi berhasil diperbarui');
+      return;
+    }
+
+    // New Pos
+    if (source === 'tabungan' && amount > 0) {
+      const curBal = calc().bal;
+      if (curBal < amount) {
+        toast(`Saldo tabungan kas (${rp(curBal, true)}) tidak mencukupi untuk memotong ${rp(amount, true)}`);
+        return;
+      }
+      S.tx.push({
+        id: 'tx_' + Date.now(),
+        type: 'out',
+        cat: 'Alokasi Investasi',
+        amount,
+        date: today(),
+        note: `Modal awal pos: ${name}`,
+        ts: Date.now()
+      });
+    }
+
+    const newPos = {
+      id: 'inv_' + Date.now(),
+      name,
+      amount,
+      note,
+      createdAt: today()
+    };
+    if (!Array.isArray(S.investments)) S.investments = [];
+    S.investments.push(newPos);
+
+    if (amount > 0) {
+      if (!Array.isArray(S.invTx)) S.invTx = [];
+      S.invTx.push({
+        id: 'itx_' + Date.now(),
+        invId: newPos.id,
+        invName: newPos.name,
+        type: 'in',
+        amount,
+        date: today(),
+        source,
+        note: 'Modal awal',
+        ts: Date.now()
+      });
+    }
+
+    save();
+    d.close();
+    render();
+    toast(`Pos investasi "${name}" berhasil ditambahkan`);
+  };
+}
+
+function openInvestTopupModal(defaultInvId = null) {
+  if (!S.investments || S.investments.length === 0) {
+    toast('Belum ada pos investasi. Silakan buat pos investasi terlebih dahulu.');
+    openAddInvestmentModal();
+    return;
+  }
+
+  const d = $('#dlg');
+  const selId = defaultInvId || S.investments[0].id;
+
+  d.innerHTML = `
+    <form id="form-topup-inv" style="display:grid;gap:14px">
+      <h3>Catat Cicilan / Top Up Investasi</h3>
+      <p class="mu" style="font-size:13px;margin:0">
+        Setorkan uang ke pos investasimu. Uang yang masuk ke investasi tetap dihitung sebagai bagian dari Total Asetmu.
+      </p>
+
+      <label>Pilih Pos / Tempat Investasi
+        <select name="invId" required>
+          ${S.investments.map(x => `<option value="${x.id}" ${String(x.id) === String(selId) ? 'selected' : ''}>${esc(x.name)} (Saat ini: ${rp(x.amount, true)})</option>`).join('')}
+        </select>
+      </label>
+
+      <label>Nominal Cicilan (Rp)
+        <input name="amount" type="number" min="1" step="1" required placeholder="Contoh: 500000" autofocus>
+      </label>
+
+      <label>Tanggal Cicilan
+        <input name="date" type="date" required value="${today()}">
+      </label>
+
+      <label>Sumber Dana Cicilan
+        <div class="seg" style="margin-top:6px">
+          <label><input type="radio" name="source" value="tabungan" checked> Potong Saldo Tabungan Kas</label>
+          <label><input type="radio" name="source" value="external"> Dana Luar / Uang Baru</label>
+        </div>
+      </label>
+
+      <label>Catatan Cicilan (opsional)
+        <input name="note" type="text" maxlength="120" placeholder="Contoh: Sisihan gaji, cicilan rutin minggu ke-2">
+      </label>
+
+      <div class="row" style="margin-top:8px">
+        <button type="button" class="btn ghost" id="btn-cancel-topup">Batal</button>
+        <button type="submit" class="btn">Simpan Cicilan</button>
+      </div>
+    </form>
+  `;
+
+  d.showModal();
+  $('#btn-cancel-topup').onclick = () => d.close();
+
+  $('#form-topup-inv').onsubmit = e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const invId = fd.get('invId');
+    const amount = Math.round(+fd.get('amount') || 0);
+    const date = fd.get('date') || today();
+    const source = fd.get('source') || 'tabungan';
+    const note = String(fd.get('note') || '').trim();
+
+    if (!(amount > 0)) {
+      toast('Nominal cicilan harus lebih dari 0');
+      return;
+    }
+
+    const inv = S.investments.find(x => String(x.id) === String(invId));
+    if (!inv) {
+      toast('Pos investasi tidak ditemukan');
+      return;
+    }
+
+    if (source === 'tabungan') {
+      const curBal = calc().bal;
+      if (curBal < amount) {
+        toast(`Saldo tabungan kas (${rp(curBal, true)}) tidak cukup untuk memotong ${rp(amount, true)}`);
+        return;
+      }
+      S.tx.push({
+        id: 'tx_' + Date.now(),
+        type: 'out',
+        cat: 'Alokasi Investasi',
+        amount,
+        date,
+        note: `Cicil ke: ${inv.name}${note ? ' (' + note + ')' : ''}`,
+        ts: Date.now()
+      });
+    }
+
+    inv.amount = (Number(inv.amount) || 0) + amount;
+
+    if (!Array.isArray(S.invTx)) S.invTx = [];
+    S.invTx.push({
+      id: 'itx_' + Date.now(),
+      invId: inv.id,
+      invName: inv.name,
+      type: 'in',
+      amount,
+      date,
+      source,
+      note,
+      ts: Date.now()
+    });
+
+    save();
+    d.close();
+    render();
+    toast(`Berhasil mencicil ${rp(amount)} ke ${inv.name} ${source === 'tabungan' ? '(dipotong dari Tabungan)' : ''}`);
+  };
+}
+
+function openInvestWithdrawModal(invId) {
+  const inv = S.investments.find(x => String(x.id) === String(invId));
+  if (!inv) return;
+  const d = $('#dlg');
+
+  d.innerHTML = `
+    <form id="form-wd-inv" style="display:grid;gap:14px">
+      <h3>Cairkan Dana: ${esc(inv.name)}</h3>
+      <p class="mu" style="font-size:13px;margin:0">
+        Saldo saat ini di pos ini: <b>${rp(inv.amount, true)}</b>. Masukkan nominal yang ingin dicairkan.
+      </p>
+
+      <label>Nominal Pencairan (Rp)
+        <input name="amount" type="number" min="1" max="${inv.amount}" step="1" required placeholder="Maks: ${inv.amount}" autofocus>
+      </label>
+
+      <label>Tanggal Pencairan
+        <input name="date" type="date" required value="${today()}">
+      </label>
+
+      <label>Tujuan Hasil Pencairan
+        <div class="seg" style="margin-top:6px">
+          <label><input type="radio" name="target" value="tabungan" checked> Masuk ke Tabungan Kas Cair</label>
+          <label><input type="radio" name="target" value="external"> Dicairkan ke Luar</label>
+        </div>
+      </label>
+
+      <label>Catatan (opsional)
+        <input name="note" type="text" maxlength="120" placeholder="Keterangan pencairan">
+      </label>
+
+      <div class="row" style="margin-top:8px">
+        <button type="button" class="btn ghost" id="btn-cancel-wd">Batal</button>
+        <button type="submit" class="btn red">Cairkan Sekarang</button>
+      </div>
+    </form>
+  `;
+
+  d.showModal();
+  $('#btn-cancel-wd').onclick = () => d.close();
+
+  $('#form-wd-inv').onsubmit = e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const amount = Math.round(+fd.get('amount') || 0);
+    const date = fd.get('date') || today();
+    const target = fd.get('target') || 'tabungan';
+    const note = String(fd.get('note') || '').trim();
+
+    if (!(amount > 0)) {
+      toast('Nominal pencairan harus lebih dari 0');
+      return;
+    }
+    if (amount > inv.amount) {
+      toast(`Nominal melebihi saldo pos investasi (${rp(inv.amount, true)})`);
+      return;
+    }
+
+    inv.amount = Math.max(0, (Number(inv.amount) || 0) - amount);
+
+    if (target === 'tabungan') {
+      S.tx.push({
+        id: 'tx_' + Date.now(),
+        type: 'in',
+        cat: 'Hasil Investasi',
+        amount,
+        date,
+        note: `Cairkan dari: ${inv.name}${note ? ' (' + note + ')' : ''}`,
+        ts: Date.now()
+      });
+    }
+
+    if (!Array.isArray(S.invTx)) S.invTx = [];
+    S.invTx.push({
+      id: 'itx_' + Date.now(),
+      invId: inv.id,
+      invName: inv.name,
+      type: 'out',
+      amount,
+      date,
+      source: target,
+      note,
+      ts: Date.now()
+    });
+
+    save();
+    d.close();
+    render();
+    toast(`Dana ${rp(amount)} berhasil dicairkan dari ${inv.name}`);
+  };
+}
+
+function openInvestHistoryModal(invId) {
+  const inv = S.investments.find(x => String(x.id) === String(invId));
+  if (!inv) return;
+  const d = $('#dlg');
+  const txList = sorted((S.invTx || []).filter(t => String(t.invId) === String(inv.id)));
+
+  d.innerHTML = `
+    <div>
+      <h3>Riwayat Pos: ${esc(inv.name)}</h3>
+      <p class="mu" style="font-size:13px;margin:0 0 12px">
+        Total akumulasi modal saat ini: <b>${rp(inv.amount, true)}</b>
+      </p>
+
+      ${txList.length === 0 ? `
+        <p class="mu empty" style="padding:20px 0">Belum ada riwayat aktivitas untuk pos ini.</p>
+      ` : `
+        <div class="tw" style="max-height:280px;overflow-y:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Jenis</th>
+                <th>Sumber/Tujuan</th>
+                <th>Catatan</th>
+                <th class="r">Nominal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${txList.map(t => `
+                <tr>
+                  <td>${fd(t.date)}</td>
+                  <td><span class="bd ${t.type === 'in' ? 'in' : 'out'}">${t.type === 'in' ? '+ Cicil' : '- Cairkan'}</span></td>
+                  <td>${t.source === 'tabungan' ? 'Tabungan Kas' : 'Eksternal'}</td>
+                  <td>${esc(t.note) || '-'}</td>
+                  <td class="r ${t.type === 'in' ? 'in' : 'out'}">${t.type === 'in' ? '+' : '-'}${rp(t.amount)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `}
+
+      <div class="row" style="margin-top:14px">
+        <button type="button" class="btn ghost" id="btn-close-hist">Tutup</button>
+        <button type="button" class="btn" id="btn-topup-hist">+ Cicil ke Pos Ini</button>
+      </div>
+    </div>
+  `;
+
+  d.showModal();
+  $('#btn-close-hist').onclick = () => d.close();
+  $('#btn-topup-hist').onclick = () => openInvestTopupModal(inv.id);
+}
+
+function openDeleteInvestmentModal(invId) {
+  const inv = S.investments.find(x => String(x.id) === String(invId));
+  if (!inv) return;
+  const d = $('#dlg');
+
+  d.innerHTML = `
+    <form id="form-del-inv" style="display:grid;gap:14px">
+      <h3 style="color:var(--red)">Hapus Pos Investasi</h3>
+      <p class="mu" style="font-size:13px;margin:0;line-height:1.5">
+        Kamu akan menghapus pos investasi <b>"${esc(inv.name)}"</b> dengan sisa dana tercatat sebesar <b>${rp(inv.amount, true)}</b>.
+      </p>
+
+      ${inv.amount > 0 ? `
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" name="refund" value="1" checked style="width:auto;margin-top:3px">
+          <span>Kembalikan dana <b>${rp(inv.amount, true)}</b> ke Saldo Tabungan Kas Cair</span>
+        </label>
+      ` : ''}
+
+      <div class="row" style="margin-top:8px">
+        <button type="button" class="btn ghost" id="btn-cancel-del-inv">Batal</button>
+        <button type="submit" class="btn red">Hapus Pos</button>
+      </div>
+    </form>
+  `;
+
+  d.showModal();
+  $('#btn-cancel-del-inv').onclick = () => d.close();
+
+  $('#form-del-inv').onsubmit = e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const refund = fd.get('refund') === '1';
+
+    if (refund && inv.amount > 0) {
+      S.tx.push({
+        id: 'tx_' + Date.now(),
+        type: 'in',
+        cat: 'Hasil Investasi',
+        amount: inv.amount,
+        date: today(),
+        note: `Pengembalian dana pos dihapus: ${inv.name}`,
+        ts: Date.now()
+      });
+    }
+
+    S.investments = S.investments.filter(x => String(x.id) !== String(invId));
+    save();
+    d.close();
+    render();
+    toast(`Pos investasi "${inv.name}" berhasil dihapus`);
+  };
+}
+
+function openDeleteInvTxModal(txId) {
+  const tx = (S.invTx || []).find(t => String(t.id) === String(txId));
+  if (!tx) return;
+  const d = $('#dlg');
+
+  d.innerHTML = `
+    <div>
+      <h3 style="color:var(--red)">Hapus Riwayat Cicilan</h3>
+      <p class="mu" style="font-size:13px;margin:0 0 14px">
+        Hapus catatan aktivitas <b>${tx.type === 'in' ? 'Cicilan' : 'Pencairan'} ${rp(tx.amount, true)}</b> pada tanggal ${fd(tx.date)}?
+      </p>
+      <div class="row">
+        <button type="button" class="btn ghost" id="btn-cancel-del-itx">Batal</button>
+        <button type="button" class="btn red" id="btn-confirm-del-itx">Hapus Riwayat</button>
+      </div>
+    </div>
+  `;
+
+  d.showModal();
+  $('#btn-cancel-del-itx').onclick = () => d.close();
+  $('#btn-confirm-del-itx').onclick = () => {
+    S.invTx = (S.invTx || []).filter(t => String(t.id) !== String(txId));
+    save();
+    d.close();
+    render();
+    toast('Riwayat cicilan berhasil dihapus');
+  };
+}
 
 /* ---------- Transaksi Modal ---------- */
 function openTx(id, defaultDate) {
@@ -3030,7 +3830,11 @@ function importJSON(file) {
         tx,
         ms: Array.isArray(d.ms) ? d.ms : [],
         log: Array.isArray(d.log) ? d.log : [],
-        theme: d.theme === 'light' ? 'light' : 'dark'
+        theme: d.theme === 'light' ? 'light' : 'dark',
+        bills: Array.isArray(d.bills) ? d.bills : (Array.isArray(s._bills) ? s._bills : []),
+        billSettings: d.billSettings || s._billSettings || { remindTime: '08:00', remindFreq: 1 },
+        investments: Array.isArray(d.investments) ? d.investments : (Array.isArray(s._investments) ? s._investments : []),
+        invTx: Array.isArray(d.invTx) ? d.invTx : (Array.isArray(s._invTx) ? s._invTx : [])
       };
       save();
       applyTheme();
@@ -3221,6 +4025,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js')
       .then(reg => {
+        try { reg.update(); } catch (e) {}
         checkAndTriggerBillNotifications();
       })
       .catch(err => console.warn('Service Worker register error:', err));

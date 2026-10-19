@@ -1,12 +1,16 @@
 // Service Worker untuk TabunganKu PWA & Pengingat Tagihan
-const CACHE_NAME = 'tabunganku-cache-v2';
+const CACHE_NAME = 'tabunganku-cache-v3';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
 });
 
 // Tangani klik pada notifikasi pengingat
