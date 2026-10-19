@@ -1,5 +1,5 @@
 // Service Worker untuk TabunganKu PWA & Pengingat Tagihan
-const CACHE_NAME = 'tabunganku-cache-v3';
+const CACHE_NAME = 'tabunganku-cache-v4';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

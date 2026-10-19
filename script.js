@@ -1894,25 +1894,32 @@ function openAddInvestmentModal(id = null) {
     }
 
     // New Pos
+    const newPosId = 'inv_' + Date.now();
+    const itxId = 'itx_' + Date.now();
+    let txId = null;
+
     if (source === 'tabungan' && amount > 0) {
       const curBal = calc().bal;
       if (curBal < amount) {
         toast(`Saldo tabungan kas (${rp(curBal, true)}) tidak mencukupi untuk memotong ${rp(amount, true)}`);
         return;
       }
+      txId = 'tx_' + Date.now();
       S.tx.push({
-        id: 'tx_' + Date.now(),
+        id: txId,
         type: 'out',
         cat: 'Alokasi Investasi',
         amount,
         date: today(),
         note: `Modal awal pos: ${name}`,
+        invTxId: itxId,
+        invId: newPosId,
         ts: Date.now()
       });
     }
 
     const newPos = {
-      id: 'inv_' + Date.now(),
+      id: newPosId,
       name,
       amount,
       note,
@@ -1924,7 +1931,8 @@ function openAddInvestmentModal(id = null) {
     if (amount > 0) {
       if (!Array.isArray(S.invTx)) S.invTx = [];
       S.invTx.push({
-        id: 'itx_' + Date.now(),
+        id: itxId,
+        txId,
         invId: newPos.id,
         invName: newPos.name,
         type: 'in',
@@ -2015,19 +2023,25 @@ function openInvestTopupModal(defaultInvId = null) {
       return;
     }
 
+    const itxId = 'itx_' + Date.now();
+    let txId = null;
+
     if (source === 'tabungan') {
       const curBal = calc().bal;
       if (curBal < amount) {
         toast(`Saldo tabungan kas (${rp(curBal, true)}) tidak cukup untuk memotong ${rp(amount, true)}`);
         return;
       }
+      txId = 'tx_' + Date.now();
       S.tx.push({
-        id: 'tx_' + Date.now(),
+        id: txId,
         type: 'out',
         cat: 'Alokasi Investasi',
         amount,
         date,
         note: `Cicil ke: ${inv.name}${note ? ' (' + note + ')' : ''}`,
+        invTxId: itxId,
+        invId: inv.id,
         ts: Date.now()
       });
     }
@@ -2036,7 +2050,8 @@ function openInvestTopupModal(defaultInvId = null) {
 
     if (!Array.isArray(S.invTx)) S.invTx = [];
     S.invTx.push({
-      id: 'itx_' + Date.now(),
+      id: itxId,
+      txId,
       invId: inv.id,
       invName: inv.name,
       type: 'in',
@@ -2112,23 +2127,30 @@ function openInvestWithdrawModal(invId) {
       return;
     }
 
+    const itxId = 'itx_' + Date.now();
+    let txId = null;
+
     inv.amount = Math.max(0, (Number(inv.amount) || 0) - amount);
 
     if (target === 'tabungan') {
+      txId = 'tx_' + Date.now();
       S.tx.push({
-        id: 'tx_' + Date.now(),
+        id: txId,
         type: 'in',
         cat: 'Hasil Investasi',
         amount,
         date,
         note: `Cairkan dari: ${inv.name}${note ? ' (' + note + ')' : ''}`,
+        invTxId: itxId,
+        invId: inv.id,
         ts: Date.now()
       });
     }
 
     if (!Array.isArray(S.invTx)) S.invTx = [];
     S.invTx.push({
-      id: 'itx_' + Date.now(),
+      id: itxId,
+      txId,
       invId: inv.id,
       invName: inv.name,
       type: 'out',
@@ -2259,15 +2281,32 @@ function openDeleteInvTxModal(txId) {
   if (!tx) return;
   const d = $('#dlg');
 
+  const isDeductedFromSavings = tx.source === 'tabungan' && tx.type === 'in';
+  const isRedeemedToSavings = (tx.source === 'tabungan' || tx.target === 'tabungan') && tx.type === 'out';
+
+  let explanation = '';
+  if (isDeductedFromSavings) {
+    explanation = `
+      <div style="font-size:12.5px;color:var(--ac2);background:rgba(16,185,129,0.12);padding:10px 12px;border-radius:10px;margin:10px 0;border:1px solid rgba(16,185,129,0.25)">
+        💡 <b>Saldo Kas Otomatis Pulih:</b> Cicilan ini sebelumnya memotong tabungan kas. Menghapus riwayat ini akan otomatis <b>mengembalikan dana ${rp(tx.amount, true)} ke Saldo Tabungan Kas</b> dan <b>menghapus catatan penarikan</b> dari Riwayat Transaksi.
+      </div>`;
+  } else if (isRedeemedToSavings) {
+    explanation = `
+      <div style="font-size:12.5px;color:var(--amb);background:rgba(245,158,11,0.12);padding:10px 12px;border-radius:10px;margin:10px 0;border:1px solid rgba(245,158,11,0.25)">
+        ⚠️ <b>Penyesuaian Saldo Kas:</b> Pencairan ini sebelumnya menyetorkan dana ke tabungan kas. Menghapus riwayat ini akan membatalkan setoran tersebut di Riwayat Transaksi.
+      </div>`;
+  }
+
   d.innerHTML = `
     <div>
-      <h3 style="color:var(--red)">Hapus Riwayat Cicilan</h3>
-      <p class="mu" style="font-size:13px;margin:0 0 14px">
-        Hapus catatan aktivitas <b>${tx.type === 'in' ? 'Cicilan' : 'Pencairan'} ${rp(tx.amount, true)}</b> pada tanggal ${fd(tx.date)}?
+      <h3 style="color:var(--red)">Hapus Riwayat Cicilan / Aktivitas</h3>
+      <p class="mu" style="font-size:13px;margin:0;line-height:1.5">
+        Hapus catatan <b>${tx.type === 'in' ? 'Cicilan' : 'Pencairan'} ${rp(tx.amount, true)}</b> pada pos <b>${esc(tx.invName || 'Investasi')}</b> (${fd(tx.date)})?
       </p>
-      <div class="row">
+      ${explanation}
+      <div class="row" style="margin-top:14px">
         <button type="button" class="btn ghost" id="btn-cancel-del-itx">Batal</button>
-        <button type="button" class="btn red" id="btn-confirm-del-itx">Hapus Riwayat</button>
+        <button type="button" class="btn red" id="btn-confirm-del-itx">Hapus & Sinkronkan Saldo</button>
       </div>
     </div>
   `;
@@ -2275,11 +2314,45 @@ function openDeleteInvTxModal(txId) {
   d.showModal();
   $('#btn-cancel-del-itx').onclick = () => d.close();
   $('#btn-confirm-del-itx').onclick = () => {
+    // 1. Sesuaikan nominal pada pos investasi
+    if (tx.invId) {
+      const inv = (S.investments || []).find(i => String(i.id) === String(tx.invId));
+      if (inv) {
+        if (tx.type === 'in') {
+          inv.amount = Math.max(0, (Number(inv.amount) || 0) - (Number(tx.amount) || 0));
+        } else if (tx.type === 'out') {
+          inv.amount = (Number(inv.amount) || 0) + (Number(tx.amount) || 0);
+        }
+      }
+    }
+
+    // 2. Jika aktivitas ini terkait tabungan kas, hapus transaksi penarikan/setoran di S.tx
+    if (tx.source === 'tabungan' || tx.target === 'tabungan' || tx.txId) {
+      let removed = false;
+      if (tx.txId) {
+        const beforeLen = S.tx.length;
+        S.tx = S.tx.filter(t => String(t.id) !== String(tx.txId));
+        if (S.tx.length < beforeLen) removed = true;
+      }
+      if (!removed) {
+        const matchIdx = S.tx.findIndex(t =>
+          (t.invTxId && String(t.invTxId) === String(tx.id)) ||
+          (tx.type === 'in' && t.type === 'out' && (t.cat === 'Alokasi Investasi' || (t.note && t.note.includes(tx.invName || ''))) && Math.round(t.amount) === Math.round(tx.amount) && t.date === tx.date) ||
+          (tx.type === 'out' && t.type === 'in' && (t.cat === 'Hasil Investasi' || (t.note && t.note.includes(tx.invName || ''))) && Math.round(t.amount) === Math.round(tx.amount) && t.date === tx.date)
+        );
+        if (matchIdx !== -1) {
+          S.tx.splice(matchIdx, 1);
+        }
+      }
+    }
+
+    // 3. Hapus dari riwayat S.invTx
     S.invTx = (S.invTx || []).filter(t => String(t.id) !== String(txId));
+
     save();
     d.close();
     render();
-    toast('Riwayat cicilan berhasil dihapus');
+    toast('Riwayat cicilan berhasil dihapus dan saldo tabungan dipulihkan');
   };
 }
 
@@ -2390,6 +2463,28 @@ function openDeleteTxModal(id) {
       return;
     }
     S.tx = t;
+
+    // Sinkronisasi otomatis: Jika transaksi yang dihapus terkait investasi
+    if (x.invTxId || x.cat === 'Alokasi Investasi' || x.cat === 'Hasil Investasi' || (x.note && x.note.toLowerCase().includes('cicil ke:'))) {
+      const itxIdx = (S.invTx || []).findIndex(it =>
+        (x.invTxId && String(it.id) === String(x.invTxId)) ||
+        (it.txId && String(it.txId) === String(x.id)) ||
+        (Math.round(it.amount) === Math.round(x.amount) && it.date === x.date && (x.cat === 'Alokasi Investasi' ? it.type === 'in' : it.type === 'out'))
+      );
+      if (itxIdx !== -1) {
+        const itx = S.invTx[itxIdx];
+        const inv = (S.investments || []).find(i => String(i.id) === String(itx.invId));
+        if (inv) {
+          if (itx.type === 'in') {
+            inv.amount = Math.max(0, (Number(inv.amount) || 0) - (Number(itx.amount) || 0));
+          } else if (itx.type === 'out') {
+            inv.amount = (Number(inv.amount) || 0) + (Number(itx.amount) || 0);
+          }
+        }
+        S.invTx.splice(itxIdx, 1);
+      }
+    }
+
     save();
     d.close();
     toast('Transaksi berhasil dihapus');
