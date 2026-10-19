@@ -2141,6 +2141,136 @@ body.locked main {
   display: inline-block;
 }
 
+/* Compact Investment Summary Card */
+.inv-summary-card {
+  background: linear-gradient(135deg, #092019 0%, #0d2820 40%, #133328 100%) !important;
+  border: 1px solid rgba(16, 185, 129, 0.28) !important;
+  border-radius: var(--r-lg);
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.4), 0 0 20px rgba(16, 185, 129, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme="light"] .inv-summary-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 50%, #ecfdf5 100%) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+  box-shadow: 0 8px 24px -3px rgba(16, 185, 129, 0.12);
+}
+
+.inv-summary-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.inv-summary-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mu);
+}
+
+.inv-summary-val {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--tx-bright);
+  font-family: 'Outfit', sans-serif;
+  line-height: 1.15;
+  margin: 2px 0;
+}
+
+.inv-summary-sub {
+  font-size: 12px;
+  color: var(--ac2);
+  font-weight: 500;
+}
+
+.inv-summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.inv-summary-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bd);
+}
+
+.inv-metric-box {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--bd);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+[data-theme="light"] .inv-metric-box {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.inv-metric-lbl {
+  font-size: 11px;
+  color: var(--mu);
+  font-weight: 600;
+}
+
+.inv-metric-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tx-bright);
+  font-family: 'Outfit', sans-serif;
+}
+
+@media (max-width: 640px) {
+  .inv-summary-card {
+    padding: 16px 14px;
+    margin-bottom: 14px;
+  }
+  .inv-summary-val {
+    font-size: 23px;
+  }
+  .inv-summary-top {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .inv-summary-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .inv-summary-actions .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .inv-card {
+    padding: 14px;
+    gap: 12px;
+  }
+  .inv-card-amount {
+    font-size: 20px;
+  }
+  .inv-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
 @media print {
   aside, header, .noprint {
     display: none !important;

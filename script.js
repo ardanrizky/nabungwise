@@ -1404,35 +1404,7 @@ V.dashboard = () => {
     }
   }
 
-  const upcomingBills = (S.bills || []).map(b => ({ ...b, st: getBillStatus(b) })).filter(x => !x.st.isPaid && (x.st.daysLeft <= 7));
-  const hasUrgent = upcomingBills.some(x => x.st.daysLeft <= 0);
-  const totalUpcomingAmount = upcomingBills.reduce((acc, x) => acc + x.amount, 0);
-
-  let billBannerHtml = '';
-  if (upcomingBills.length > 0) {
-    const dueTodayCount = upcomingBills.filter(x => x.st.daysLeft === 0).length;
-    const overdueCount = upcomingBills.filter(x => x.st.daysLeft < 0).length;
-    let titleText = `Peringatan: Ada ${upcomingBills.length} tagihan jatuh tempo terdekat`;
-    if (overdueCount > 0) {
-      titleText = `Perhatian: Ada ${overdueCount} tagihan yang terlewat jatuh tempo!`;
-    } else if (dueTodayCount > 0) {
-      titleText = `Perhatian: Ada ${dueTodayCount} tagihan jatuh tempo hari ini!`;
-    }
-
-    billBannerHtml = `
-    <div class="bill-banner ${hasUrgent ? 'urgent' : ''}">
-      <div class="bill-banner-icon">${hasUrgent ? ICONS.alert : ICONS.bellRing}</div>
-      <div class="bill-banner-text">
-        <b>${titleText}</b>
-        <p>Total kewajiban tagihan: <b>${rp(totalUpcomingAmount, true)}</b> (${upcomingBills.map(x => esc(x.name)).slice(0, 3).join(', ')}${upcomingBills.length > 3 ? '...' : ''}).</p>
-      </div>
-      <a href="#tagihan" class="btn ${hasUrgent ? 'red' : 'small'}" style="text-decoration:none;white-space:nowrap">Lihat Tagihan →</a>
-    </div>`;
-  }
-
   $('#view').innerHTML = `
-  ${billBannerHtml}
-
   <!-- Net Worth & Portofolio Finansial Card -->
   <div class="card net-worth-card">
     <div class="nw-header">
@@ -1648,37 +1620,34 @@ V.investasi = () => {
       return `
         <div class="inv-dist-chip">
           <span class="inv-chip-color" style="background:${color}"></span>
-          <b>${esc(inv.name)}</b>: <span class="mu">${rp(inv.amount)} (${pct.toFixed(1)}%)</span>
+          <span>${esc(inv.name)}: <b>${pct.toFixed(1)}%</b></span>
         </div>`;
     }).join('');
 
     distBarHtml = `
-      <section class="card">
-        <h3 style="margin-bottom:8px">
-          ${ICONS.pie}
-          Distribusi Alokasi Portofolio
-        </h3>
-        <p class="mu" style="font-size:13px;margin-bottom:12px">Komposisi sebaran dana yang kamu investasikan di berbagai pos dan instrumen.</p>
-        <div class="inv-dist-container">
-          <div class="inv-dist-bar">${segments}</div>
-          <div class="inv-dist-chips">${chips}</div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bd)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;color:var(--mu);font-weight:600">
+          <span>ALOKASI PORTOFOLIO</span>
+          <span>${invList.length} Instrumen</span>
         </div>
-      </section>`;
+        <div class="inv-dist-bar" style="height:8px;margin-bottom:8px">${segments}</div>
+        <div class="inv-dist-chips" style="font-size:11.5px;gap:6px 12px">${chips}</div>
+      </div>`;
   }
 
   let cardsHtml = '';
   if (invList.length === 0) {
     cardsHtml = `
-      <div class="card" style="text-align:center;padding:40px 20px">
-        <div style="width:56px;height:56px;border-radius:16px;background:var(--pur-bg);color:var(--pur);display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px">
+      <div class="card" style="text-align:center;padding:36px 18px">
+        <div style="width:52px;height:52px;border-radius:14px;background:var(--pur-bg);color:var(--pur);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px">
           ${ICONS.invest}
         </div>
         <h3 style="margin-bottom:6px">Belum Ada Pos Investasi Tercatat</h3>
-        <p class="mu" style="max-width:440px;margin:0 auto 18px;font-size:13.5px">
+        <p class="mu" style="max-width:420px;margin:0 auto 16px;font-size:13px">
           Catat pos/tempat investasimu (misal: Reksadana, Saham BBRI, Emas Antam, Kripto, Deposito) untuk melacak akumulasi cicilan dan total asetmu secara real-time.
         </p>
         <button class="btn" id="btn-add-inv-empty">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           <span>Tambah Pos Investasi Pertama</span>
         </button>
       </div>`;
@@ -1696,16 +1665,16 @@ V.investasi = () => {
               <div>
                 <div class="inv-card-head">
                   <div style="display:flex;align-items:center;gap:8px">
-                    <span class="inv-chip-color" style="background:${color};width:12px;height:12px;border-radius:4px"></span>
+                    <span class="inv-chip-color" style="background:${color};width:10px;height:10px;border-radius:3px"></span>
                     <span class="inv-card-name">${esc(inv.name)}</span>
                   </div>
                   <span class="inv-card-badge">${pct}% Porsi</span>
                 </div>
-                <div class="inv-card-amount" style="margin:12px 0 8px">${rp(inv.amount)}</div>
-                ${inv.note ? `<p class="mu" style="font-size:12.5px;margin-bottom:10px">${esc(inv.note)}</p>` : ''}
+                <div class="inv-card-amount" style="margin:10px 0 6px">${rp(inv.amount)}</div>
+                ${inv.note ? `<p class="mu" style="font-size:12px;margin-bottom:8px">${esc(inv.note)}</p>` : ''}
                 <div class="inv-card-meta">
-                  <div>${txCount > 0 ? `${txCount}x Aktivitas / Cicilan` : 'Belum ada riwayat cicilan'}</div>
-                  ${lastTx ? `<div>Terakhir: <b>${fd(lastTx.date)}</b> (${lastTx.type === 'in' ? '+ ' : '- '}${rp(lastTx.amount)})</div>` : ''}
+                  <div>${txCount > 0 ? `${txCount}x Aktivitas Cicilan` : 'Belum ada cicilan'}</div>
+                  ${lastTx ? `<div>Terakhir: <b>${fd(lastTx.date)}</b> (${lastTx.type === 'in' ? '+' : '-'}${rp(lastTx.amount)})</div>` : ''}
                 </div>
               </div>
               <div class="inv-card-actions">
@@ -1713,10 +1682,10 @@ V.investasi = () => {
                 <button class="btn ghost small" data-act="withdraw-inv" data-id="${inv.id}">Cairkan</button>
                 <button class="btn ghost small" data-act="history-inv" data-id="${inv.id}">Riwayat</button>
                 <button class="ib" data-act="edit-inv" data-id="${inv.id}" title="Edit Pos">
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                 </button>
                 <button class="ib" data-act="del-inv" data-id="${inv.id}" title="Hapus Pos" style="color:var(--red)">
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 </button>
               </div>
             </div>`;
@@ -1727,10 +1696,10 @@ V.investasi = () => {
   let txTableHtml = '';
   if (invTxList.length > 0) {
     txTableHtml = `
-      <section class="card" style="margin-top:24px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <section class="card" style="margin-top:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <h3 style="margin:0;display:flex;align-items:center;gap:8px">${ICONS.clock} Riwayat Cicilan & Aktivitas Investasi</h3>
-          <span class="mu" style="font-size:12.5px">${invTxList.length} aktivitas tercatat</span>
+          <span class="mu" style="font-size:12px">${invTxList.length} aktivitas tercatat</span>
         </div>
         <div class="tw">
           <table>
@@ -1764,41 +1733,48 @@ V.investasi = () => {
   }
 
   $('#view').innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:20px">
-      <div>
-        <h2 style="margin:0;display:flex;align-items:center;gap:8px">
-          ${ICONS.invest}
-          Portofolio & Alokasi Investasi
-        </h2>
-        <p class="mu" style="margin:4px 0 0;font-size:13.5px">
-          Catat pos investasi tempat kamu menyicil modal. Dana teralokasi otomatis dihitung ke dalam Total Aset (Net Worth).
-        </p>
+    <!-- Ringkasan Portofolio Terpadu Compact Card -->
+    <div class="inv-summary-card">
+      <div class="inv-summary-top">
+        <div>
+          <div class="inv-summary-label">TOTAL DANA INVESTASI</div>
+          <div class="inv-summary-val">${rp(nw.invTotal)}</div>
+          <div class="inv-summary-sub">
+            <span class="pill" style="background:var(--pur-bg);color:var(--pur);padding:2px 8px;font-size:11px;font-weight:600">${nw.invCount} Pos Aktif</span>
+            <span style="margin-left:6px;color:var(--mu)">${nw.invPct.toFixed(1)}% dari Total Aset</span>
+          </div>
+        </div>
+        <div class="inv-summary-actions">
+          <button class="btn ghost small" id="btn-topup-inv-main">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>+ Cicil Inves</span>
+          </button>
+          <button class="btn small" id="btn-add-inv-main">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>+ Pos Baru</span>
+          </button>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <button class="btn ghost" id="btn-topup-inv-main">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span>Catat Cicilan Investasi</span>
-        </button>
-        <button class="btn" id="btn-add-inv-main">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span>Tambah Pos Investasi</span>
-        </button>
+
+      <div class="inv-summary-metrics">
+        <div class="inv-metric-box">
+          <span class="inv-metric-lbl">Total Tabungan (Kas Likuid)</span>
+          <span class="inv-metric-val" style="color:var(--sky)">${rp(nw.savingsBal)}</span>
+        </div>
+        <div class="inv-metric-box">
+          <span class="inv-metric-lbl">Total Aset (Net Worth)</span>
+          <span class="inv-metric-val" style="color:var(--em)">${rp(nw.netWorth)}</span>
+        </div>
       </div>
+
+      ${distBarHtml}
     </div>
 
-    <div class="stats" style="grid-template-columns:repeat(auto-fit, minmax(210px, 1fr))">
-      ${st4('Dana Teralokasi Inves', rp(nw.invTotal), `${nw.invCount} pos investasi aktif`, 'purple', ICONS.invest)}
-      ${st4('Total Tabungan Saat Ini', rp(nw.savingsBal), 'Kas siap pakai / likuid', 'sky', ICONS.wallet)}
-      ${st4('Total Aset (Net Worth)', rp(nw.netWorth), 'Tabungan + Portofolio Investasi', 'emerald', ICONS.bank)}
-      ${st4('Porsi Portofolio Inves', `${nw.invPct.toFixed(1)}%`, `${nw.savingsPct.toFixed(1)}% di tabungan kas`, 'amber', ICONS.chart)}
-    </div>
-
-    ${distBarHtml}
-
-    <section class="card" style="margin-top:20px">
+    <!-- Pos & Instrumen Investasi Grid -->
+    <section class="card" style="margin-top:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
         <h3 style="margin:0">${ICONS.layers} Pos & Tempat Investasi (${invList.length})</h3>
-        ${invList.length > 0 ? `<button class="btn ghost small" id="btn-add-inv-sec">+ Tambah Pos Lain</button>` : ''}
+        ${invList.length > 0 ? `<button class="btn ghost small" id="btn-add-inv-sec">+ Tambah Pos</button>` : ''}
       </div>
       ${cardsHtml}
     </section>
